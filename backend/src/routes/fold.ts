@@ -21,8 +21,9 @@ foldRouter.post("/", async (req: Request, res: Response) => {
 
     res.json({ pdb: fold.pdb, confidence: fold.meanPlddt, folded: fold.folded });
   } catch (error) {
-    // Do not echo error.message to callers; log server-side only.
-    console.error("Fold error:", error);
+    // Log the message only (never the full error object, which can carry
+    // upstream URLs); do not echo it to callers.
+    console.error("Fold error:", error instanceof Error ? error.message : error);
     res.status(500).json({ error: "Fold failed." });
   }
 });

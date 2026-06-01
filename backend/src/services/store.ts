@@ -79,18 +79,25 @@ export function saveDesign(
     forkCount: 0,
   };
   db[id] = design;
-  // Record the lineage edge: bump the parent's fork count (heal legacy rows).
-  if (design.parentId && db[design.parentId]) {
-    const cur = db[design.parentId].forkCount;
-    db[design.parentId].forkCount = Number.isFinite(cur) ? cur + 1 : 1;
-  }
   writeDB(db);
   return design;
 }
 
+// forkCount is DERIVED from the stored parentId lineage edges, never a mutable
+// counter. A caller can set parentId to any design, but each child is one real
+// (rate-limited, content-addressed, deduplicated) design -- so the count
+// reflects genuine forks and cannot be cheaply inflated against a victim.
+function countForks(db: DesignsDB, id: string): number {
+  let n = 0;
+  for (const k in db) if (db[k].parentId === id) n++;
+  return n;
+}
+
 export function getDesign(id: string): StoredDesign | null {
   const db = readDB();
-  return db[id] ?? null;
+  const d = db[id];
+  if (!d) return null;
+  return { ...d, forkCount: countForks(db, id) };
 }
 
 export type GallerySort = "recent" | "forked" | "top";
@@ -110,7 +117,7 @@ export function listDesigns(sort: GallerySort = "recent", limit = 60): GalleryIt
     id: d.id,
     title: d.title,
     createdAt: d.createdAt,
-    forkCount: d.forkCount ?? 0,
+    forkCount: countForks(db, d.id),
     bestConfidence: d.result.candidates.reduce<number | null>(
       (best, c) =>
         c.confidence != null && (best == null || c.confidence > best)
@@ -163,7 +170,17 @@ function sha256(s: string): string {
   return createHash("sha256").update(s).digest("hex");
 }
 
+// Hard cap on stored keys so anonymous minting cannot grow apikeys.json without
+// bound (disk-fill DoS on the file-backed registry).
+const MAX_KEYS = Number(process.env.BIOS_MAX_KEYS ?? 10000);
+
 export function createApiKey(label = "default"): { key: string; record: ApiKeyRecord } {
+  const existing = readKeys();
+  if (Object.keys(existing).length >= MAX_KEYS) {
+    const err = new Error("API key limit reached.") as Error & { status?: number };
+    err.status = 503;
+    throw err;
+  }
   const secret = randomBytes(24).toString("base64url"); // 32 url-safe chars
   const key = `bios_sk_live_${secret}`;
   const hash = sha256(key);
@@ -175,9 +192,8 @@ export function createApiKey(label = "default"): { key: string; record: ApiKeyRe
     label,
     createdAt: Date.now(),
   };
-  const db = readKeys();
-  db[hash] = record;
-  writeKeys(db);
+  existing[hash] = record;
+  writeKeys(existing);
   return { key, record };
 }
 

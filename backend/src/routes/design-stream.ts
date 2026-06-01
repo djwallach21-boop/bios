@@ -15,7 +15,8 @@ import {
   crisprExplanationPrompt,
 } from "../services/modalities";
 import { saveDesign } from "../services/store";
-import { screenText } from "../services/biosafety";
+import { screenText, containsRawSequence } from "../services/biosafety";
+import { acquireSlot, OverloadError } from "../lib/limit";
 import type { DesignResult, ParsedIntent } from "../types";
 
 export const designStreamRouter = Router();
@@ -43,6 +44,26 @@ function safetyDecline(intent: string): DesignResult {
     declineReason: "Declined by the safety screen.",
     alternative:
       "Rephrase as a legitimate research goal, e.g. a diagnostic binder or a benign industrial enzyme.",
+  };
+}
+
+function pastedSequenceDecline(intent: string): DesignResult {
+  const reason =
+    "Pasted raw sequences can't be safety-screened yet, so BiOS does not design directly from them.";
+  const alternative =
+    "Describe the target by name or function instead (e.g. 'codon-optimize human insulin for E. coli' or 'CRISPR guides to knock out human PCSK9').";
+  return {
+    intent,
+    modality: "declined",
+    kind: "decline",
+    computed: "reference-only",
+    confidence: null,
+    parsed: EMPTY_PARSED,
+    references: [],
+    explanation: `${reason} ${alternative}`,
+    candidates: [],
+    declineReason: reason,
+    alternative,
   };
 }
 
@@ -128,7 +149,19 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
     return;
   }
 
+  // Fail closed on pasted raw sequences: they are used verbatim as the design
+  // target but cannot be sequence-screened here.
+  if (containsRawSequence(intent)) {
+    emit({ type: "route", modality: "declined", confidence: 1 });
+    emit({ type: "result", result: pastedSequenceDecline(intent) });
+    emit({ type: "done" });
+    res.end();
+    return;
+  }
+
+  let release: (() => void) | null = null;
   try {
+    release = await acquireSlot();
     const route = await classifyIntent(intent);
     const modality = route.modality;
     emit({ type: "route", modality, confidence: route.confidence });
@@ -288,12 +321,26 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
     emit({ type: "done" });
     res.end();
   } catch (error) {
-    // Log internally; never leak raw error text (may carry upstream URLs/keys).
-    console.error("design-stream error:", error);
+    if (error instanceof OverloadError) {
+      emit({
+        type: "error",
+        message: "Server is at capacity. Please retry in a few seconds.",
+      });
+      res.end();
+      return;
+    }
+    // Log internally (message only; never the full error, which can carry
+    // upstream URLs / the NCBI api_key).
+    console.error(
+      "design-stream error:",
+      error instanceof Error ? error.message : error
+    );
     emit({
       type: "error",
       message: "The design pipeline failed. Please try again.",
     });
     res.end();
+  } finally {
+    release?.();
   }
 });

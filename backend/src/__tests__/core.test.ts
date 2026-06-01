@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   reverseComplement,
   gcContent,
@@ -7,7 +7,7 @@ import {
   meltingTemp,
 } from "../services/bio";
 import { contentId } from "../lib/id";
-import { screenText } from "../services/biosafety";
+import { screenText, containsRawSequence } from "../services/biosafety";
 import type { DesignResult } from "../types";
 
 describe("bio: reverseComplement", () => {
@@ -105,5 +105,62 @@ describe("biosafety: screenText", () => {
   it("refuses explicit weaponization intent", () => {
     expect(screenText("weaponize a pathogen").allowed).toBe(false);
     expect(screenText("make it more lethal and evade vaccine").allowed).toBe(false);
+  });
+});
+
+describe("biosafety: containsRawSequence (fail-closed on pasted sequences)", () => {
+  it("allows named/described targets", () => {
+    expect(containsRawSequence("codon-optimize human insulin for E. coli")).toBe(false);
+    expect(containsRawSequence("CRISPR guides to knock out human PCSK9")).toBe(false);
+  });
+  it("flags a pasted protein run (>=25 aa)", () => {
+    expect(containsRawSequence("optimize MKTAYIAKQRQISFVKSHFSRQLEERLG for E. coli")).toBe(true);
+  });
+  it("flags a pasted DNA run (>=40 nt)", () => {
+    expect(containsRawSequence("guides for " + "ACGT".repeat(10))).toBe(true);
+  });
+  it("respects the BIOS_ALLOW_PASTED_SEQUENCES opt-out", () => {
+    process.env.BIOS_ALLOW_PASTED_SEQUENCES = "1";
+    expect(containsRawSequence("MKT".repeat(20))).toBe(false);
+    delete process.env.BIOS_ALLOW_PASTED_SEQUENCES;
+  });
+});
+
+describe("bio: CRISPR guide start is in input-strand coordinates", () => {
+  it("protospacer reconstructs at start on both strands", () => {
+    const seq = "ATG" + "ACGTACGTACGTACGTACGT" + "AGG" + "GGCCAATTGG" + "ACGTACGTACGTACGTACGT" + "CGG";
+    const guides = findCas9Guides(seq, 10);
+    expect(guides.length).toBeGreaterThan(0);
+    for (const g of guides) {
+      const window = seq.slice(g.start, g.start + 20);
+      if (g.strand === "+") {
+        expect(window).toBe(g.sequence);
+      } else {
+        // minus strand: input window reverse-complements to the protospacer
+        expect(reverseComplement(window)).toBe(g.sequence);
+      }
+    }
+  });
+});
+
+describe("lib/limit: concurrency cap", () => {
+  it("hands out a release fn and is idempotent", async () => {
+    const { acquireSlot } = await import("../lib/limit");
+    const release = await acquireSlot();
+    expect(typeof release).toBe("function");
+    release();
+    release(); // second call is a no-op, must not throw
+  });
+  it("rejects with OverloadError when inflight + queue are full", async () => {
+    vi.resetModules();
+    process.env.BIOS_MAX_INFLIGHT = "1";
+    process.env.BIOS_MAX_QUEUE = "0";
+    const { acquireSlot, OverloadError } = await import("../lib/limit");
+    const r1 = await acquireSlot(); // fills the single inflight slot
+    await expect(acquireSlot()).rejects.toBeInstanceOf(OverloadError);
+    r1();
+    delete process.env.BIOS_MAX_INFLIGHT;
+    delete process.env.BIOS_MAX_QUEUE;
+    vi.resetModules();
   });
 });

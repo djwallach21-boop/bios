@@ -17,8 +17,9 @@ searchRouter.post("/", async (req: Request, res: Response) => {
     res.json({ query, results });
   } catch (error) {
     // Do not echo error.message: upstream axios errors can embed the GenBank
-    // URL, which carries &api_key=<NCBI key>. Log server-side only.
-    console.error("Search error:", error);
+    // URL, which carries &api_key=<NCBI key>. Log the message only (never the
+    // full error object, whose config.url/params hold the key) server-side.
+    console.error("Search error:", error instanceof Error ? error.message : error);
     res.status(500).json({ error: "Search failed." });
   }
 });

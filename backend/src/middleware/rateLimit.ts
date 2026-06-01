@@ -21,6 +21,19 @@ const REFILL_PER_SEC = 0.05; // ~1 token / 20s sustained; bursts up to capacity
 
 const buckets = new Map<string, Bucket>();
 
+// Aggregate ceiling on billed design spend across ALL principals. Per-principal
+// buckets cannot bound total spend (an attacker can mint unlimited free keys,
+// each getting its own bucket -- denial-of-wallet). This single shared bucket
+// is the hard cap: once drained, design calls 429 for everyone until it
+// refills, no matter how many keys/IPs exist. Sized for launch traffic; raise
+// via env as real usage grows. Pair with provider-side spend caps.
+const GLOBAL_CAPACITY = Number(process.env.BIOS_GLOBAL_DESIGN_CAPACITY ?? 300);
+const globalBucket: Bucket = { tokens: GLOBAL_CAPACITY, updated: Date.now() };
+
+function isDesignRequest(originalUrl: string, method: string): boolean {
+  return method !== "GET" && /\/designs?(\/|$)/.test(originalUrl);
+}
+
 // Cost weights: reads are cheap, billed-compute is expensive.
 function costFor(path: string, method: string): number {
   if (method === "GET") return 1;
@@ -62,6 +75,32 @@ export function rateLimit(req: Request, res: Response, next: NextFunction): void
       `Rate limit exceeded. Retry in ~${retry}s, or use an API key for a higher tier.`
     );
     return;
+  }
+
+  // Billed design calls also draw on the global ceiling. Check it BEFORE
+  // spending the per-principal tokens so a global-limit rejection doesn't
+  // consume the caller's quota.
+  if (isDesignRequest(req.originalUrl, req.method)) {
+    globalBucket.tokens = Math.min(
+      GLOBAL_CAPACITY,
+      globalBucket.tokens +
+        ((now - globalBucket.updated) / 1000) * GLOBAL_CAPACITY * REFILL_PER_SEC
+    );
+    globalBucket.updated = now;
+    if (globalBucket.tokens < cost) {
+      const retry = Math.ceil(
+        (cost - globalBucket.tokens) / (GLOBAL_CAPACITY * REFILL_PER_SEC)
+      );
+      res.setHeader("Retry-After", String(retry));
+      apiError(
+        res,
+        429,
+        "rate_limit_exceeded",
+        `Service is at its global design capacity. Retry in ~${retry}s.`
+      );
+      return;
+    }
+    globalBucket.tokens -= cost;
   }
 
   b.tokens -= cost;

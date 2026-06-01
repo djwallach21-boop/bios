@@ -31,6 +31,24 @@ those, silently truncating folds.
 2. Set build-time env: `NEXT_PUBLIC_API_BASE=https://bios-api.onrender.com`.
 3. Deploy. Add a custom domain when ready.
 
+## Spend / abuse limits (denial-of-wallet)
+
+The API meters paid upstreams (Claude / NIM / ESMFold) three ways: a per-principal
+token bucket, a process-wide concurrency cap, and a single global spend bucket
+that bounds *aggregate* design spend regardless of how many keys/IPs exist.
+Tune via env (all optional, sane defaults):
+
+- `BIOS_GLOBAL_DESIGN_CAPACITY` (default 300) - aggregate design-token ceiling.
+- `BIOS_MAX_INFLIGHT` (default 6) - concurrent design pipelines.
+- `BIOS_MAX_QUEUE` (default 24) - waiting room before requests get 503.
+- `BIOS_MAX_KEYS` (default 10000) - cap on minted keys (anti disk-fill).
+- `BIOS_ALLOW_PASTED_SEQUENCES` - set `1` only in a trusted/authenticated
+  deployment; by default the API fails closed on raw pasted sequences (they
+  can't be sequence-screened yet).
+
+Defense-in-depth: also set a hard monthly spend cap + alert on the Anthropic and
+NVIDIA dashboards. The in-memory limiters reset on restart and are per-instance.
+
 ## Scale path
 
 The design + API-key store is file-backed under `backend/data/` (zero-dep, fine

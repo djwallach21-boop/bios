@@ -8,9 +8,10 @@ import { searchRouter } from "./routes/search";
 import { foldRouter } from "./routes/fold";
 import { keysRouter } from "./routes/keys";
 import { metaRouter } from "./routes/meta";
-import { requestId } from "./middleware/errors";
+import { requestId, apiError } from "./middleware/errors";
 import { apiKeyAuth } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
+import type { Request, Response, NextFunction } from "express";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -18,6 +19,11 @@ const PORT = process.env.PORT || 3001;
 // Behind Render's proxy: trust one hop so req.ip is the real client (not the
 // proxy), otherwise every anonymous user collapses into one shared bucket.
 app.set("trust proxy", 1);
+
+// Attach a request id to EVERY response first, before body parsing, so even
+// body-parser failures (malformed/oversized JSON) carry BiOS-Request-Id and
+// hit the terminal error handler with a clean envelope.
+app.use(requestId);
 
 // CORS allowlist. Server-to-server / curl requests (no Origin) are allowed;
 // browser requests must come from an allowed origin. API auth is via key, so
@@ -41,10 +47,11 @@ app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "bios-api" });
 });
 
-// Shared protected middleware: request id -> optional API-key auth -> rate
-// limit. Applied to BOTH the public /v1 API and the legacy /api/* aliases so
-// the paid upstreams (Claude / NIM) can never be hit unmetered.
-const protect = [requestId, apiKeyAuth, rateLimit];
+// Shared protected middleware: optional API-key auth -> rate limit (request id
+// is already applied app-wide above). Applied to BOTH the public /v1 API and
+// the legacy /api/* aliases so the paid upstreams (Claude / NIM) can never be
+// hit unmetered.
+const protect = [apiKeyAuth, rateLimit];
 
 const v1 = express.Router();
 v1.use(...protect);
@@ -68,6 +75,21 @@ app.use("/api/design", protect, designRouter);
 app.use("/api/designs", protect, designsRouter);
 app.use("/api/search", protect, searchRouter);
 app.use("/api/fold", protect, foldRouter);
+
+// Terminal error handler (LAST). Catches body-parser failures (malformed JSON,
+// 413 oversize) and anything else that throws synchronously, returning the
+// standard JSON envelope instead of Express's plaintext default. Never leaks
+// stacks or upstream URLs.
+app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, res: Response, next: NextFunction) => {
+  if (res.headersSent) return next(err);
+  const status = err.status || err.statusCode || 500;
+  console.error("Unhandled error:", err instanceof Error ? err.message : err);
+  const type =
+    status === 413 ? "payload_too_large" : status === 400 ? "invalid_request" : "internal_error";
+  const message =
+    status < 500 ? "Malformed or oversized request." : "Internal error.";
+  apiError(res, status, type, message);
+});
 
 app.listen(PORT, () => {
   console.log(`BiOS API running on port ${PORT}`);
