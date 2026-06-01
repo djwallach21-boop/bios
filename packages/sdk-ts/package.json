@@ -1,0 +1,19 @@
+{
+  "name": "@bios/sdk",
+  "version": "0.1.0",
+  "description": "Official TypeScript SDK for BiOS, the protein-design API.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["bios", "protein", "biology", "design", "bioinformatics"],
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/node": "^20"
+  }
+}

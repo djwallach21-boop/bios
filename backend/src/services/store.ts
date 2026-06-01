@@ -1,0 +1,187 @@
+import { randomBytes, createHash } from "crypto";
+import { mkdirSync, readFileSync, writeFileSync, renameSync, existsSync } from "fs";
+import { join } from "path";
+import type { DesignResult } from "../types";
+import { contentId } from "../lib/id";
+
+// Server-side design registry. File-backed for now (zero deps, ships today)
+// behind a narrow interface so it can be swapped for Supabase/Postgres without
+// touching callers. Every completed design persists here and gets a permanent
+// shareable id -> /d/<id>. This is the network-effect layer.
+const DATA_DIR = join(process.cwd(), "data");
+const DESIGNS_FILE = join(DATA_DIR, "designs.json");
+const KEYS_FILE = join(DATA_DIR, "apikeys.json");
+
+export interface StoredDesign {
+  id: string;
+  title: string;
+  result: DesignResult;
+  createdAt: number;
+  parentId: string | null;
+  forkCount: number;
+}
+
+interface DesignsDB {
+  [id: string]: StoredDesign;
+}
+
+function ensure(): void {
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+  if (!existsSync(DESIGNS_FILE)) writeFileSync(DESIGNS_FILE, "{}");
+}
+
+function readDB(): DesignsDB {
+  ensure();
+  try {
+    return JSON.parse(readFileSync(DESIGNS_FILE, "utf8")) as DesignsDB;
+  } catch {
+    return {};
+  }
+}
+
+// Write to a temp file then rename: rename is atomic, so a crash mid-write
+// can never leave a half-written (and thus unparseable) registry behind.
+function writeJsonAtomic(file: string, data: unknown): void {
+  const tmp = `${file}.tmp`;
+  writeFileSync(tmp, JSON.stringify(data));
+  renameSync(tmp, file);
+}
+
+function writeDB(db: DesignsDB): void {
+  ensure();
+  writeJsonAtomic(DESIGNS_FILE, db);
+}
+
+function titleFor(result: DesignResult): string {
+  const fn = result.parsed?.targetFunction?.trim();
+  const base = fn && fn.length ? fn : result.intent;
+  const clause = base.split(/[,;.]/)[0] ?? base;
+  const t = clause.trim().replace(/\s+/g, " ");
+  const capped = t.length > 60 ? `${t.slice(0, 60)}...` : t;
+  return capped.charAt(0).toUpperCase() + capped.slice(1);
+}
+
+export function saveDesign(
+  result: DesignResult,
+  createdAt: number,
+  parentId: string | null = null
+): StoredDesign {
+  const db = readDB();
+  const id = contentId(result);
+  // Immutable + content-addressed: identical designs dedup to one record.
+  if (db[id]) return db[id];
+  const design: StoredDesign = {
+    id,
+    title: titleFor(result),
+    result,
+    createdAt,
+    parentId: parentId && db[parentId] ? parentId : null,
+    forkCount: 0,
+  };
+  db[id] = design;
+  // Record the lineage edge: bump the parent's fork count (heal legacy rows).
+  if (design.parentId && db[design.parentId]) {
+    const cur = db[design.parentId].forkCount;
+    db[design.parentId].forkCount = Number.isFinite(cur) ? cur + 1 : 1;
+  }
+  writeDB(db);
+  return design;
+}
+
+export function getDesign(id: string): StoredDesign | null {
+  const db = readDB();
+  return db[id] ?? null;
+}
+
+export type GallerySort = "recent" | "forked" | "top";
+
+export interface GalleryItem {
+  id: string;
+  title: string;
+  createdAt: number;
+  bestConfidence: number | null;
+  forkCount: number;
+  organism: string | null;
+}
+
+export function listDesigns(sort: GallerySort = "recent", limit = 60): GalleryItem[] {
+  const db = readDB();
+  const items: GalleryItem[] = Object.values(db).map((d) => ({
+    id: d.id,
+    title: d.title,
+    createdAt: d.createdAt,
+    forkCount: d.forkCount ?? 0,
+    bestConfidence: d.result.candidates.reduce<number | null>(
+      (best, c) =>
+        c.confidence != null && (best == null || c.confidence > best)
+          ? c.confidence
+          : best,
+      null
+    ),
+    organism: d.result.references[0]?.organism ?? null,
+  }));
+
+  const sorters: Record<GallerySort, (a: GalleryItem, b: GalleryItem) => number> = {
+    recent: (a, b) => b.createdAt - a.createdAt,
+    forked: (a, b) => b.forkCount - a.forkCount || b.createdAt - a.createdAt,
+    top: (a, b) => (b.bestConfidence ?? 0) - (a.bestConfidence ?? 0),
+  };
+  return items.sort(sorters[sort] ?? sorters.recent).slice(0, limit);
+}
+
+// ---- API keys ----
+// We store only sha256(key) + a display prefix; the plaintext key is shown
+// once at creation and never persisted.
+export interface ApiKeyRecord {
+  id: string;
+  hash: string;
+  prefix: string;
+  tier: "free" | "dev" | "scale";
+  label: string;
+  createdAt: number;
+}
+
+interface KeysDB {
+  [hash: string]: ApiKeyRecord;
+}
+
+function readKeys(): KeysDB {
+  if (!existsSync(KEYS_FILE)) return {};
+  try {
+    return JSON.parse(readFileSync(KEYS_FILE, "utf8")) as KeysDB;
+  } catch {
+    return {};
+  }
+}
+
+function writeKeys(db: KeysDB): void {
+  ensure();
+  writeJsonAtomic(KEYS_FILE, db);
+}
+
+function sha256(s: string): string {
+  return createHash("sha256").update(s).digest("hex");
+}
+
+export function createApiKey(label = "default"): { key: string; record: ApiKeyRecord } {
+  const secret = randomBytes(24).toString("base64url"); // 32 url-safe chars
+  const key = `bios_sk_live_${secret}`;
+  const hash = sha256(key);
+  const record: ApiKeyRecord = {
+    id: `key_${randomBytes(6).toString("base64url")}`,
+    hash,
+    prefix: key.slice(0, 20),
+    tier: "free",
+    label,
+    createdAt: Date.now(),
+  };
+  const db = readKeys();
+  db[hash] = record;
+  writeKeys(db);
+  return { key, record };
+}
+
+export function validateApiKey(rawKey: string): ApiKeyRecord | null {
+  const db = readKeys();
+  return db[sha256(rawKey)] ?? null;
+}

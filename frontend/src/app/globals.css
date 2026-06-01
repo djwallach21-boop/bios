@@ -1,0 +1,252 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  /* Apple system stack first: real SF Pro renders on Apple devices, Geist is
+     the matched cross-platform fallback. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", var(--font-geist-sans), "Inter", system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo,
+    monospace;
+  --font-heading: var(--font-sans);
+
+  /* Apple-derived type scale: size + tied line-height + signed tracking. */
+  --text-display: 3.5rem;
+  --text-display--line-height: 1.05;
+  --text-display--letter-spacing: -0.022em;
+  --text-display--font-weight: 700;
+  --text-title: 2rem;
+  --text-title--line-height: 1.1;
+  --text-title--letter-spacing: -0.02em;
+  --text-title--font-weight: 600;
+  --text-heading: 1.3125rem;
+  --text-heading--line-height: 1.25;
+  --text-heading--letter-spacing: -0.015em;
+  --text-heading--font-weight: 600;
+  --text-body-lg: 1.0625rem;
+  --text-body-lg--line-height: 1.45;
+  --text-body-lg--letter-spacing: -0.01em;
+  --text-body: 0.9375rem;
+  --text-body--line-height: 1.5;
+  --text-label: 0.8125rem;
+  --text-label--line-height: 1.4;
+  --text-label--letter-spacing: 0.005em;
+  --text-label--font-weight: 500;
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.35;
+  --text-caption--letter-spacing: 0.01em;
+  --text-caption--font-weight: 500;
+
+  /* Elevation ladder + surfaces (values defined per-theme below). */
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-separator: var(--separator);
+  --color-text-tertiary: var(--text-tertiary);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* BiOS design tokens: a darker "terminal recess" and the confidence tiers.
+     Green is the only color in the UI, and only when a prediction earns it. */
+  --color-recess: var(--recess);
+  --color-confidence-high: oklch(0.78 0.16 158);
+  --color-confidence-mid: oklch(0.78 0.16 80);
+  --color-confidence-low: oklch(0.62 0.2 25);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --surface-1: oklch(0.985 0 0);
+  --surface-2: oklch(1 0 0);
+  --surface-3: oklch(1 0 0);
+  --recess: oklch(0.97 0 0);
+  --separator: oklch(0 0 0 / 0.08);
+  --text-tertiary: oklch(0.145 0 0 / 0.4);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.7rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
+}
+
+.dark {
+  --background: oklch(0 0 0); /* the void, behind everything */
+  --foreground: oklch(0.985 0 0);
+  /* Desaturated-cool near-black elevation ladder (hue 265, chroma 0.004): a
+     sub-perceptual undertone that kills the "dead neutral" gray. */
+  --surface-1: oklch(0.18 0.004 265); /* recessed rail / sidebar */
+  --surface-2: oklch(0.225 0.004 265); /* elevated content cards */
+  --surface-3: oklch(0.27 0.004 265); /* popovers / menus / hover-raise */
+  --recess: oklch(0.155 0.004 265); /* true cut-in, darker than its card */
+  --separator: oklch(1 0 0 / 0.07);
+  --text-tertiary: oklch(0.92 0.004 265 / 0.3);
+  --card: var(--surface-2);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: var(--surface-3);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.92 0.004 265 / 0.6); /* Apple secondaryLabel */
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(1 0 0 / 0.25); /* white, protects the single-accent rule */
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: var(--surface-1);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-size: 0.9375rem; /* 15px Apple body anchor */
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  html {
+    @apply font-sans;
+  }
+}
+
+@layer utilities {
+  /* Apple "vibrancy": floating chrome only (composer, header, popovers).
+     The three ingredients -- blur is dead without saturate + the 1px
+     light-from-above inset highlight. Never over content/WebGL. */
+  .glass {
+    background: oklch(0.2 0.004 265 / 0.6);
+    backdrop-filter: blur(40px) saturate(180%);
+    -webkit-backdrop-filter: blur(40px) saturate(180%);
+    border: 1px solid oklch(1 0 0 / 0.08);
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.06),
+      0 1px 2px oklch(0 0 0 / 0.4),
+      0 16px 40px -12px oklch(0 0 0 / 0.7);
+  }
+  /* Soft ambient lift for opaque content cards on the black void. */
+  .card-elevated {
+    box-shadow:
+      inset 0 1px 0 0 oklch(1 0 0 / 0.05),
+      0 1px 2px oklch(0 0 0 / 0.4),
+      0 8px 24px -8px oklch(0 0 0 / 0.5);
+  }
+  /* Continuous-corner (squircle) where supported; degrades to the radius. */
+  .squircle {
+    corner-shape: squircle;
+  }
+  /* One soft light source on the dark stage, behind the hero. No color. */
+  .hero-vignette {
+    background: radial-gradient(
+      60% 50% at 50% 42%,
+      oklch(0.22 0.008 265 / 0.5),
+      transparent 70%
+    );
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    .glass {
+      background: oklch(0.2 0.004 265 / 0.95);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+  }
+}
+
+@layer utilities {
+  /* Tactile active-press for buttons/chips/tabs (Linear/Emil motion canon:
+     transform-only, fast, ease-out, gated by reduced-motion). */
+  .press {
+    transition: transform 120ms cubic-bezier(0.23, 1, 0.32, 1);
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .press,
+    .press:active {
+      transition: none;
+      transform: none;
+    }
+  }
+}

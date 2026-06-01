@@ -1,0 +1,13 @@
+[project]
+name = "bios-sdk"
+version = "0.1.0"
+description = "Official Python SDK for BiOS, the protein-design API."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["bios", "protein", "biology", "design", "bioinformatics", "crispr"]
+dependencies = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

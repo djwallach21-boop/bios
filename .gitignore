@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+.next/
+out/
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
+# File-backed registry (runtime data, never source)
+data/
+
+# Logs / OS
+*.log
+.DS_Store
