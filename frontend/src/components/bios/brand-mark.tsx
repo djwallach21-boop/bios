@@ -11,7 +11,7 @@ export function BrandMark() {
         </span>
       </div>
       <p className="mt-4 text-body-lg text-muted-foreground">
-        Design biology in plain language.
+        Design biology in plain English.
       </p>
     </div>
   );

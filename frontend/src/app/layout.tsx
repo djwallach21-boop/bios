@@ -12,10 +12,28 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// Locked positioning (HN title + homepage first line + social unfurl). The
+// description is the one verifiable claim: names the three modalities + the
+// open-source wedge.
+const TITLE = "BiOS: Design biology in plain English";
+const DESCRIPTION =
+  "Describe a protein, gene, or CRISPR guide in plain English. BiOS designs it, scores it against the closest natural relatives from GenBank, and gives you a shareable permalink. Free and open source.";
+
 export const metadata: Metadata = {
-  title: "BiOS: Design biology in plain language",
-  description:
-    "Describe what you want a protein to do. BiOS returns candidate sequences, a confidence score, and the closest natural relatives from GenBank. Open source.",
+  title: TITLE,
+  description: DESCRIPTION,
+  applicationName: "BiOS",
+  openGraph: {
+    title: TITLE,
+    description: DESCRIPTION,
+    siteName: "BiOS",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: TITLE,
+    description: DESCRIPTION,
+  },
 };
 
 export default function RootLayout({
