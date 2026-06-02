@@ -13,11 +13,10 @@ const geistMono = Geist_Mono({
 });
 
 // Locked positioning (HN title + homepage first line + social unfurl). The
-// description is the one verifiable claim: names the three modalities + the
-// open-source wedge.
+// description is the one verifiable claim: names the three modalities.
 const TITLE = "BiOS: Design biology in plain English";
 const DESCRIPTION =
-  "Describe a protein, gene, or CRISPR guide in plain English. BiOS designs it, scores it against the closest natural relatives from GenBank, and gives you a shareable permalink. Free and open source.";
+  "Describe a protein, gene, or CRISPR guide in plain English. BiOS designs it, scores it against the closest natural relatives from GenBank, and gives you a shareable permalink.";
 
 export const metadata: Metadata = {
   title: TITLE,

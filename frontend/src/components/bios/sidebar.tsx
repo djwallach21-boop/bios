@@ -90,14 +90,6 @@ export function Sidebar({
         >
           API &amp; developers
         </a>
-        <a
-          href="https://github.com/djwallach21-boop/bios"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-        >
-          Open source on GitHub
-        </a>
       </div>
     </aside>
   );

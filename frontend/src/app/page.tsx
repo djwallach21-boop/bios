@@ -390,14 +390,6 @@ export default function Home() {
               </>
             )}
           </div>
-          <a
-            href="https://github.com/djwallach21-boop/bios"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="press rounded-full bg-primary px-4 py-1.5 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            GitHub
-          </a>
         </header>
 
         {empty ? (
