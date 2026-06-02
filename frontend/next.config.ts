@@ -1,9 +1,43 @@
 import type { NextConfig } from "next";
 
+// Content-Security-Policy tuned for this app: Next injects inline bootstrap
+// scripts (so script-src needs 'unsafe-inline'/'unsafe-eval'), Tailwind emits
+// inline styles, 3Dmol renders WebGL (canvas/blob worker), and the browser
+// calls a cross-origin HTTPS API. We still lock down the high-value vectors:
+// no framing (frame-ancestors none), no plugins (object-src none), base-uri
+// self, and connect limited to self + https.
+const csp = [
+  "default-src 'self'",
+  "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+  "style-src 'self' 'unsafe-inline'",
+  "img-src 'self' data: blob:",
+  "font-src 'self' data:",
+  "worker-src 'self' blob:",
+  "connect-src 'self' https:",
+  "object-src 'none'",
+  "base-uri 'self'",
+  "frame-ancestors 'none'",
+].join("; ");
+
+const securityHeaders = [
+  { key: "Content-Security-Policy", value: csp },
+  { key: "X-Content-Type-Options", value: "nosniff" },
+  { key: "X-Frame-Options", value: "DENY" },
+  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains",
+  },
+];
+
 const nextConfig: NextConfig = {
   // Pin the workspace root to this app. A stray parent lockfile would
   // otherwise make Turbopack infer the wrong root and warn on every build.
   turbopack: { root: __dirname },
+  async headers() {
+    return [{ source: "/:path*", headers: securityHeaders }];
+  },
 };
 
 export default nextConfig;

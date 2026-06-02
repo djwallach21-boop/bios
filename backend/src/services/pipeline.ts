@@ -2,7 +2,7 @@ import { parseIntent, synthesizeExplanation } from "./claude";
 import { searchProteins } from "./genbank";
 import { generateRedesignedSequences } from "./denovo";
 import { foldSequence } from "./esmfold";
-import { screenText } from "./biosafety";
+import { screenText, containsRawSequence } from "./biosafety";
 import type { DesignResult } from "../types";
 
 // The one canonical design pipeline. Every surface (chat, public REST API, SDK)
@@ -32,6 +32,31 @@ export async function runDesign(intent: string): Promise<DesignResult> {
       candidates: [],
       declineReason: "Declined by the safety screen.",
       alternative: "Rephrase as a legitimate research goal.",
+    };
+  }
+  // Fail closed on pasted raw sequences here too (mirrors the streaming path),
+  // so the contract is identical on /v1/designs and /api/design.
+  if (containsRawSequence(intent)) {
+    return {
+      intent,
+      modality: "declined",
+      kind: "decline",
+      computed: "reference-only",
+      confidence: null,
+      parsed: {
+        targetFunction: "",
+        organism: "",
+        constraints: [],
+        similarProteins: [],
+        keywords: [],
+      },
+      references: [],
+      explanation:
+        "Pasted raw sequences can't be safety-screened yet, so BiOS does not design directly from them. Describe the target by name or function instead.",
+      candidates: [],
+      declineReason: "Pasted raw sequences can't be safety-screened yet.",
+      alternative:
+        "Describe the target by name or function (e.g. 'codon-optimize human insulin for E. coli').",
     };
   }
   const parsed = await parseIntent(intent);

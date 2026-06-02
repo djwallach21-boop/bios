@@ -11,6 +11,11 @@ searchRouter.post("/", async (req: Request, res: Response) => {
       res.status(400).json({ error: "Missing 'query' in request body" });
       return;
     }
+    // Cap length so a huge body can't build a multi-MB NCBI URL.
+    if (query.length > 500) {
+      res.status(400).json({ error: "Query too long." });
+      return;
+    }
 
     const results = await searchProteins(query.split(" "));
 

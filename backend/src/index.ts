@@ -20,10 +20,27 @@ const PORT = process.env.PORT || 3001;
 // proxy), otherwise every anonymous user collapses into one shared bucket.
 app.set("trust proxy", 1);
 
+// Don't advertise the framework.
+app.disable("x-powered-by");
+
 // Attach a request id to EVERY response first, before body parsing, so even
 // body-parser failures (malformed/oversized JSON) carry BiOS-Request-Id and
 // hit the terminal error handler with a clean envelope.
 app.use(requestId);
+
+// Baseline security headers on every response (HSTS only bites over HTTPS,
+// which Render/Vercel terminate). No CSP here -- this API serves JSON/SSE, not
+// HTML; the frontend sets its own CSP.
+app.use((_req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains"
+  );
+  next();
+});
 
 // CORS allowlist. Server-to-server / curl requests (no Origin) are allowed;
 // browser requests must come from an allowed origin. API auth is via key, so
@@ -75,6 +92,12 @@ app.use("/api/design", protect, designRouter);
 app.use("/api/designs", protect, designsRouter);
 app.use("/api/search", protect, searchRouter);
 app.use("/api/fold", protect, foldRouter);
+
+// Unmatched route -> uniform JSON 404 (not Express's plaintext default), so
+// the error-envelope contract holds everywhere. Placed after all routes.
+app.use((_req: Request, res: Response) => {
+  apiError(res, 404, "not_found", "No such route.");
+});
 
 // Terminal error handler (LAST). Catches body-parser failures (malformed JSON,
 // 413 oversize) and anything else that throws synchronously, returning the

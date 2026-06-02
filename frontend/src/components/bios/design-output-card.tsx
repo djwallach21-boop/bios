@@ -135,8 +135,9 @@ export function DesignOutputCard({ result }: { result: DesignResult }) {
         </p>
         {isScaffold && (
           <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">
-            No redesign ran (ProteinMPNN not configured). This is the closest
-            natural sequence from GenBank, shown as a reference.
+            No redesign ran for this target (often because it exceeds the
+            400-residue fold limit), so this is the closest natural sequence
+            from GenBank, shown as a reference, not a BiOS design.
           </p>
         )}
       </div>

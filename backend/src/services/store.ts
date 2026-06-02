@@ -26,8 +26,8 @@ interface DesignsDB {
 }
 
 function ensure(): void {
-  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
-  if (!existsSync(DESIGNS_FILE)) writeFileSync(DESIGNS_FILE, "{}");
+  if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true, mode: 0o700 });
+  if (!existsSync(DESIGNS_FILE)) writeFileSync(DESIGNS_FILE, "{}", { mode: 0o600 });
 }
 
 function readDB(): DesignsDB {
@@ -43,7 +43,8 @@ function readDB(): DesignsDB {
 // can never leave a half-written (and thus unparseable) registry behind.
 function writeJsonAtomic(file: string, data: unknown): void {
   const tmp = `${file}.tmp`;
-  writeFileSync(tmp, JSON.stringify(data));
+  // 0o600: the registry + key hashes are owner-only, never world-readable.
+  writeFileSync(tmp, JSON.stringify(data), { mode: 0o600 });
   renameSync(tmp, file);
 }
 
@@ -113,11 +114,18 @@ export interface GalleryItem {
 
 export function listDesigns(sort: GallerySort = "recent", limit = 60): GalleryItem[] {
   const db = readDB();
+  // Single pass: tally fork edges once (O(N)) instead of a full scan per row
+  // (which made the gallery O(N^2) and could block the event loop at scale).
+  const forkCounts = new Map<string, number>();
+  for (const d of Object.values(db)) {
+    if (d.parentId)
+      forkCounts.set(d.parentId, (forkCounts.get(d.parentId) ?? 0) + 1);
+  }
   const items: GalleryItem[] = Object.values(db).map((d) => ({
     id: d.id,
     title: d.title,
     createdAt: d.createdAt,
-    forkCount: countForks(db, d.id),
+    forkCount: forkCounts.get(d.id) ?? 0,
     bestConfidence: d.result.candidates.reduce<number | null>(
       (best, c) =>
         c.confidence != null && (best == null || c.confidence > best)

@@ -120,7 +120,16 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
   res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
 
+  // If the client disconnects mid-stream, stop the pipeline promptly so the
+  // concurrency slot is freed and we stop streaming/billing for an abandoned
+  // request (Express does not throw into the handler on disconnect).
+  let aborted = false;
+  res.on("close", () => {
+    aborted = true;
+  });
+
   const emit = (event: Record<string, unknown>) => {
+    if (aborted) return;
     res.write(`data: ${JSON.stringify(event)}\n\n`);
   };
   const stage = (id: string, status: "start" | "done") =>
@@ -162,6 +171,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
   let release: (() => void) | null = null;
   try {
     release = await acquireSlot();
+    if (aborted) return; // client already gone; finally frees the slot
     const route = await classifyIntent(intent);
     const modality = route.modality;
     emit({ type: "route", modality, confidence: route.confidence });
@@ -193,6 +203,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         for await (const t of streamText(
           dnaExplanationPrompt(intent, dna.construct)
         )) {
+          if (aborted) break;
           explanation += t;
           emit({ type: "token", text: t });
         }
@@ -230,6 +241,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         for await (const t of streamText(
           crisprExplanationPrompt(intent, cr.target.name, cr.guides.length)
         )) {
+          if (aborted) break;
           explanation += t;
           emit({ type: "token", text: t });
         }
@@ -273,6 +285,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         top.map((c) => c.sequence),
         references.map((r) => r.title)
       )) {
+        if (aborted) break;
         explanation += token;
         emit({ type: "token", text: token });
       }
@@ -307,6 +320,8 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         candidates,
       };
     }
+
+    if (aborted) return; // client gone; skip persist/emit, finally frees slot
 
     // Never persist declines (they would surface in the public gallery).
     if (result.kind !== "decline") {
