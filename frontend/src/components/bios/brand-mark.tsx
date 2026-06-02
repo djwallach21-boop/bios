@@ -4,13 +4,13 @@ import { BiosMark } from "./bios-mark";
 export function BrandMark() {
   return (
     <div className="flex flex-col items-center text-center">
-      <div className="flex items-center gap-2.5">
-        <BiosMark className="size-8 text-foreground" />
-        <span className="text-[34px] font-semibold tracking-[-0.03em] text-foreground">
+      <div className="flex items-center gap-3 [perspective:500px]">
+        <BiosMark className="helix-live size-11 text-foreground" />
+        <span className="text-[40px] font-semibold leading-none tracking-[-0.04em] text-foreground">
           BiOS
         </span>
       </div>
-      <p className="mt-3 text-body-lg text-muted-foreground">
+      <p className="mt-4 text-body-lg text-muted-foreground">
         Design biology in plain language.
       </p>
     </div>

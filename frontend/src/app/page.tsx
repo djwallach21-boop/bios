@@ -7,6 +7,8 @@ import { ChatComposer, type ComposerHandle } from "@/components/bios/chat-compos
 import { ChatTurn } from "@/components/bios/chat-turn";
 import { Sidebar } from "@/components/bios/sidebar";
 import { SuggestionChips } from "@/components/bios/suggestion-chips";
+import { StructureViewer } from "@/components/bios/structure-viewer";
+import { HERO_PDB } from "@/lib/hero-pdb";
 import { streamDesign } from "@/lib/api";
 import type { ChatMessage } from "@/lib/types";
 import {
@@ -401,10 +403,19 @@ export default function Home() {
         {empty ? (
           <>
             <main className="relative flex flex-1 flex-col items-center justify-center px-6">
+              {/* Signature hero: a live, pLDDT-colored protein structure drifting
+                  on a transparent canvas behind the composer. Strongest at the
+                  periphery, dissolves behind the wordmark via a radial mask, and
+                  unmounts the instant a design starts. */}
+              <div className="pointer-events-none absolute inset-0 scale-125 opacity-[0.3] motion-reduce:opacity-[0.16] [mask-image:radial-gradient(70%_60%_at_50%_45%,black,transparent)] [-webkit-mask-image:radial-gradient(70%_60%_at_50%_45%,black,transparent)]">
+                <StructureViewer ambient pdb={HERO_PDB} />
+              </div>
               <div className="hero-vignette pointer-events-none absolute inset-0" />
               <div className="relative w-full max-w-[680px]">
-                <BrandMark />
-                <div className="mt-9">
+                <div className="hero-enter">
+                  <BrandMark />
+                </div>
+                <div className="hero-enter mt-9" style={{ animationDelay: "140ms" }}>
                   <ChatComposer
                     ref={composerRef}
                     value={input}
@@ -415,7 +426,9 @@ export default function Home() {
                     autoFocus
                   />
                 </div>
-                <SuggestionChips onSelect={setInput} />
+                <div className="hero-enter" style={{ animationDelay: "240ms" }}>
+                  <SuggestionChips onSelect={setInput} />
+                </div>
               </div>
             </main>
             <footer className="shrink-0 pb-5 text-center">

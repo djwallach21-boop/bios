@@ -54,7 +54,7 @@ export function FastaViewer({
         >
           {copied ? (
             <>
-              <Check style={{ color: "var(--color-confidence-high)" }} />
+              <Check className="pop-in" style={{ color: "var(--color-confidence-high)" }} />
               <span className="font-mono text-[11px]">
                 Copied {count} residues
               </span>

@@ -64,7 +64,7 @@ export function DnaCard({ result }: { result: DesignResult }) {
         >
           {copied ? (
             <>
-              <Check style={{ color: "var(--color-confidence-high)" }} />
+              <Check className="pop-in" style={{ color: "var(--color-confidence-high)" }} />
               <span className="font-mono text-[11px]">Copied</span>
             </>
           ) : (

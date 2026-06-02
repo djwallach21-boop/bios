@@ -21,7 +21,7 @@ export function StageList({ stages }: { stages: StreamStage[] }) {
           <span className="flex size-4 items-center justify-center rounded-sm border border-border">
             {s.status === "done" ? (
               <Check
-                className="size-3"
+                className="size-3 pop-in"
                 style={{ color: "var(--color-confidence-high)" }}
               />
             ) : s.status === "active" ? (

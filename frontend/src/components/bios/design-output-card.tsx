@@ -152,7 +152,7 @@ export function DesignOutputCard({ result }: { result: DesignResult }) {
       <Hairline />
 
       {/* Predicted structure (real ESMFold) */}
-      <div className="px-5 py-5">
+      <div className="reveal px-5 py-5" style={{ animationDelay: "120ms" }}>
         <div className="mb-3 flex items-center justify-between">
           <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
             Predicted structure
@@ -163,7 +163,11 @@ export function DesignOutputCard({ result }: { result: DesignResult }) {
             </span>
           )}
         </div>
-        <div className="relative aspect-[16/10] overflow-hidden rounded-lg border border-border bg-recess">
+        <div
+          className={`relative aspect-[16/10] overflow-hidden rounded-lg border border-border bg-recess ${
+            pdb && !belowThreshold ? "structure-glow" : ""
+          }`}
+        >
           {pdb ? (
             <StructureViewer key={pdb.slice(0, 48)} pdb={pdb} />
           ) : (

@@ -28,7 +28,20 @@ export default function RootLayout({
       lang="en"
       className={`dark ${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {/* Ambient stage behind everything: a faint floor glow + sub-perceptual
+            dot grid, then filmic grain. Fixed, pointer-events-none, behind all
+            content. */}
+        <div
+          aria-hidden
+          className="stage-field pointer-events-none fixed inset-0 -z-10"
+        />
+        <div
+          aria-hidden
+          className="grain pointer-events-none fixed inset-0 -z-10"
+        />
+        {children}
+      </body>
     </html>
   );
 }
