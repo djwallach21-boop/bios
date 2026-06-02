@@ -6,14 +6,18 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     rootDir: backend
-    plan: starter
+    # Free tier: $0 hosting. Tradeoffs: the service spins down after ~15 min
+    # idle (~30-60s cold start on the next request) and has NO persistent disk,
+    # so the file-backed registry (saved designs / permalinks / API keys) is
+    # ephemeral and resets on restart. Fine for a 10-user demand test.
+    # UPGRADE to always-on + persistent: set `plan: starter` (~$7/mo) and
+    # uncomment the `disk:` block below.
+    plan: free
     healthCheckPath: /api/health
-    # The file-backed design registry lives here; a disk keeps it across
-    # deploys until the Supabase driver lands.
-    disk:
-      name: bios-data
-      mountPath: /app/data
-      sizeGB: 1
+    # disk:
+    #   name: bios-data
+    #   mountPath: /app/data
+    #   sizeGB: 1
     envVars:
       - key: ANTHROPIC_API_KEY
         sync: false
