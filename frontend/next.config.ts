@@ -6,6 +6,17 @@ import type { NextConfig } from "next";
 // calls a cross-origin HTTPS API. We still lock down the high-value vectors:
 // no framing (frame-ancestors none), no plugins (object-src none), base-uri
 // self, and connect limited to self + https.
+// The browser calls the backend cross-origin; allow exactly that origin (read
+// from the build-time API base) plus self -- tight in prod, and working for a
+// local http backend during dev/testing.
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "http://localhost:3001";
+let apiOrigin = "http://localhost:3001";
+try {
+  apiOrigin = new URL(API_BASE).origin;
+} catch {
+  /* keep fallback */
+}
+
 const csp = [
   "default-src 'self'",
   "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
@@ -13,7 +24,7 @@ const csp = [
   "img-src 'self' data: blob:",
   "font-src 'self' data:",
   "worker-src 'self' blob:",
-  "connect-src 'self' https:",
+  `connect-src 'self' ${apiOrigin}`,
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",
