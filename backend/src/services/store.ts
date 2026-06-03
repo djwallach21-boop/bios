@@ -11,6 +11,7 @@ import { contentId } from "../lib/id";
 const DATA_DIR = join(process.cwd(), "data");
 const DESIGNS_FILE = join(DATA_DIR, "designs.json");
 const KEYS_FILE = join(DATA_DIR, "apikeys.json");
+const FEEDBACK_FILE = join(DATA_DIR, "feedback.json");
 
 export interface StoredDesign {
   id: string;
@@ -220,4 +221,48 @@ export function createApiKey(label = "default"): { key: string; record: ApiKeyRe
 export function validateApiKey(rawKey: string): ApiKeyRecord | null {
   const db = readKeys();
   return db[sha256(rawKey)] ?? null;
+}
+
+// ---- In-product feedback (the learning instrument) ----
+export interface FeedbackRecord {
+  id: string;
+  rating: "yes" | "not_quite" | "no";
+  text: string;
+  designId: string | null;
+  createdAt: number;
+}
+
+export function saveFeedback(
+  rating: FeedbackRecord["rating"],
+  text: string,
+  designId: string | null,
+  createdAt: number
+): FeedbackRecord {
+  ensure();
+  let db: Record<string, FeedbackRecord> = {};
+  try {
+    if (existsSync(FEEDBACK_FILE))
+      db = JSON.parse(readFileSync(FEEDBACK_FILE, "utf8")) as Record<
+        string,
+        FeedbackRecord
+      >;
+  } catch {
+    db = {};
+  }
+  const id = `fb_${randomBytes(6).toString("base64url")}`;
+  const record: FeedbackRecord = {
+    id,
+    rating,
+    text: text.slice(0, 1000),
+    designId,
+    createdAt,
+  };
+  db[id] = record;
+  writeJsonAtomic(FEEDBACK_FILE, db);
+  // Also log it: on the free tier the file is ephemeral, but Render keeps logs,
+  // so feedback is never lost even before the persistent disk is attached.
+  console.log(
+    `[feedback] rating=${rating} design=${designId ?? "-"} note=${JSON.stringify(text.slice(0, 200))}`
+  );
+  return record;
 }

@@ -2,6 +2,7 @@ import { BiosMark } from "./bios-mark";
 import { ResultView } from "./result-view";
 import { ShareRow } from "./share-row";
 import { StageList } from "./stage-list";
+import { FeedbackPrompt } from "./feedback-prompt";
 import type { ChatMessage } from "@/lib/types";
 
 // Bubble-free transcript turns. User prompts get a left rule; assistant turns
@@ -69,6 +70,7 @@ export function ChatTurn({ message }: { message: ChatMessage }) {
               <ResultView result={message.result} />
             </div>
             {message.designId && <ShareRow designId={message.designId} />}
+            <FeedbackPrompt designId={message.designId} />
           </div>
         )}
       </div>

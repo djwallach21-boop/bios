@@ -131,6 +131,23 @@ export async function foldSequence(sequence: string): Promise<FoldResponse> {
   return res.json();
 }
 
+export async function sendFeedback(input: {
+  rating: "yes" | "not_quite" | "no";
+  text?: string;
+  designId?: string | null;
+}): Promise<void> {
+  // Best-effort: feedback must never block or break the UI.
+  try {
+    await fetch(`${API_BASE}/api/feedback`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 export async function designProtein(intent: string): Promise<DesignResult> {
   const res = await fetch(`${API_BASE}/api/design`, {
     method: "POST",

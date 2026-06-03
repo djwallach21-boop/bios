@@ -8,6 +8,7 @@ import { searchRouter } from "./routes/search";
 import { foldRouter } from "./routes/fold";
 import { keysRouter } from "./routes/keys";
 import { metaRouter } from "./routes/meta";
+import { feedbackRouter } from "./routes/feedback";
 import { requestId, apiError } from "./middleware/errors";
 import { apiKeyAuth } from "./middleware/auth";
 import { rateLimit } from "./middleware/rateLimit";
@@ -91,6 +92,7 @@ v1.use("/designs", designsRouter);
 v1.use("/designs", designRouter);
 v1.use("/fold", foldRouter);
 v1.use("/search", searchRouter);
+v1.use("/feedback", feedbackRouter);
 app.use("/v1", v1);
 
 // Legacy aliases (the current frontend uses these) -- same protection.
@@ -101,6 +103,7 @@ app.use("/api/design", protect, designRouter);
 app.use("/api/designs", protect, designsRouter);
 app.use("/api/search", protect, searchRouter);
 app.use("/api/fold", protect, foldRouter);
+app.use("/api/feedback", protect, feedbackRouter);
 
 // Unmatched route -> uniform JSON 404 (not Express's plaintext default), so
 // the error-envelope contract holds everywhere. Placed after all routes.
