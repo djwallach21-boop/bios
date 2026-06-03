@@ -169,7 +169,10 @@ export function DesignOutputCard({ result }: { result: DesignResult }) {
           }`}
         >
           {pdb ? (
-            <StructureViewer key={pdb.slice(0, 48)} pdb={pdb} />
+            // Key on the candidate index, not the PDB header: every ESMFold PDB
+            // shares the same first ~48 chars, so slicing collided across C1/C2/
+            // C3 and the viewer never remounted when switching candidates.
+            <StructureViewer key={active} pdb={pdb} />
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
               <Box className="size-6 text-muted-foreground" strokeWidth={1.5} />
