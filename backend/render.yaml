@@ -26,11 +26,10 @@ services:
       - key: NCBI_API_KEY
         sync: false
       # Comma-separated browser origins allowed to call the API (the Vercel
-      # prod URL + any custom domain). Without this the deployed API rejects
-      # all browser requests.
+      # prod URLs). Not a secret, so managed here in the blueprint.
       - key: BIOS_ALLOWED_ORIGINS
-        sync: false
+        value: https://bios-murex.vercel.app,https://bios-dylan-wallach-s-projects.vercel.app
       # Public base URL of THIS API, advertised in openapi.json / llms.txt so
       # self-integrating agents hit prod, not localhost.
       - key: BIOS_PUBLIC_URL
-        sync: false
+        value: https://bios-api-zpgh.onrender.com
