@@ -17,9 +17,13 @@ export function DnaCard({ result }: { result: DesignResult }) {
   for (let i = 0; i < c.dna.length; i += 60) lines.push(c.dna.slice(i, i + 60));
 
   async function copy() {
-    await navigator.clipboard.writeText(c!.dna);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(c!.dna);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // Clipboard blocked (insecure context / permissions): fail quietly.
+    }
   }
 
   return (

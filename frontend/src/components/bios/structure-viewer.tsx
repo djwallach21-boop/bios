@@ -121,7 +121,12 @@ export function StructureViewer({
         el.removeEventListener("pointerleave", resume);
       }
       try {
-        viewer?.stopAnimate?.(); // stop the render/spin loop
+        // Order matters: spin() runs its own rAF loop that stopAnimate() does
+        // not cancel. Without spin(false) the unmounted viewer keeps rendering
+        // into a now-detached, zero-size canvas, flooding the console with
+        // GL_INVALID_FRAMEBUFFER_OPERATION every frame.
+        viewer?.spin?.(false);
+        viewer?.stopAnimate?.(); // stop the render/animate loop
         viewer?.clear?.();
       } catch {
         /* ignore teardown errors */

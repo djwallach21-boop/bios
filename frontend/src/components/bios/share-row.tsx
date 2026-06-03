@@ -9,9 +9,15 @@ export function ShareRow({ designId }: { designId: string }) {
 
   async function copy() {
     const url = `${window.location.origin}/d/${designId}`;
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard can be blocked (insecure context / permissions). Fail quietly
+      // instead of throwing an unhandled rejection; the permalink is visible
+      // next to the button regardless.
+    }
   }
 
   return (

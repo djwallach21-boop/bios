@@ -18,8 +18,15 @@ import {
   type Thread,
 } from "@/lib/threads";
 
+// IDs must be unique across reloads: a module-level counter restarts at 0 on
+// every load and collides with the ids already baked into persisted threads,
+// producing duplicate React keys and cross-message state corruption. Use a
+// collision-free UUID (with a counter fallback for any non-secure context).
 let counter = 0;
-const nextId = () => `m${++counter}`;
+const nextId = () =>
+  typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `m${++counter}-${Date.now().toString(36)}`;
 
 function shortTitle(targetFunction: string): string {
   const clause = targetFunction.split(/[,;.]/)[0] ?? targetFunction;

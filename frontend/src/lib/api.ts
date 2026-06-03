@@ -43,6 +43,10 @@ export async function streamDesign(
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  // Did a terminal event (result or error) arrive? If the connection closes
+  // cleanly without one (e.g. a proxy idle-timeout mid-pipeline), we must not
+  // leave the assistant turn stuck in "streaming" forever.
+  let settled = false;
 
   const dispatch = (chunk: string) => {
     const line = chunk.trim();
@@ -68,8 +72,10 @@ export async function streamDesign(
     } else if (evt.type === "saved") {
       h.onSaved?.(evt.id as string, evt.title as string);
     } else if (evt.type === "result") {
+      settled = true;
       h.onResult(evt.result as DesignResult);
     } else if (evt.type === "error") {
+      settled = true;
       h.onError(evt.message as string);
     }
   };
@@ -91,6 +97,12 @@ export async function streamDesign(
     // Aborted by the user (Stop): swallow; the caller handles UI state.
     if (e instanceof DOMException && e.name === "AbortError") return;
     h.onError("The stream was interrupted.");
+    return;
+  }
+  // Stream ended cleanly but no result/error event ever arrived -- treat it as
+  // a failure so the turn settles instead of spinning forever.
+  if (!settled) {
+    h.onError("The connection closed before the design finished. Please try again.");
   }
 }
 

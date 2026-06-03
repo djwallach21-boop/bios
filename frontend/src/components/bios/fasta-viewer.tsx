@@ -30,9 +30,14 @@ export function FastaViewer({
   ).length;
 
   async function copy() {
-    await navigator.clipboard.writeText(buildFasta(name, sequence));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
+    try {
+      await navigator.clipboard.writeText(buildFasta(name, sequence));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // Clipboard blocked (insecure context / permissions): fail quietly
+      // rather than throwing an unhandled rejection.
+    }
   }
 
   return (

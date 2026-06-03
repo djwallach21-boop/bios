@@ -6,20 +6,23 @@ import type { ProteinReference } from "@/lib/types";
 export function GenbankRelatives({
   references,
 }: {
-  references: ProteinReference[];
+  references?: ProteinReference[];
 }) {
+  // A persisted or older result may lack `references` entirely; never let a
+  // missing field crash the whole share/transcript page.
+  const refs = references ?? [];
   return (
     <div className="px-5 py-5">
       <span className="font-mono text-[11px] uppercase tracking-[0.08em] text-muted-foreground">
         Closest GenBank relatives
       </span>
-      {references.length === 0 ? (
+      {refs.length === 0 ? (
         <p className="mt-3 text-[13px] text-muted-foreground">
           No close natural relatives found for this design.
         </p>
       ) : (
         <ul className="mt-3 space-y-0.5">
-          {references.map((ref) => (
+          {refs.map((ref) => (
             <li key={ref.id || ref.accession}>
               <a
                 href={`https://www.ncbi.nlm.nih.gov/protein/${ref.accession}`}
