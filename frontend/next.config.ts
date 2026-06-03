@@ -43,9 +43,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Pin the workspace root to this app. A stray parent lockfile would
-  // otherwise make Turbopack infer the wrong root and warn on every build.
-  turbopack: { root: __dirname },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
