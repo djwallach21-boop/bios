@@ -28,8 +28,13 @@ export async function foldSequence(
       timeout: 120000,
     });
     const pdb = res.data as string;
-    if (typeof pdb !== "string" || !pdb.includes("ATOM")) return null;
-    return { pdb, meanPlddt: meanCaPlddt(pdb), folded: seq.length };
+    // A 200 can still be an HTML/JSON error body that merely contains the
+    // substring "ATOM". Require a real ATOM record at the start of a line and a
+    // CA-derived pLDDT (> 0) before trusting it as a structure.
+    if (typeof pdb !== "string" || !/^ATOM\s/m.test(pdb)) return null;
+    const meanPlddt = meanCaPlddt(pdb);
+    if (meanPlddt <= 0) return null;
+    return { pdb, meanPlddt, folded: seq.length };
   } catch {
     return null;
   }

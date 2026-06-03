@@ -200,12 +200,23 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         stage("optimize", "done");
         stage("write", "start");
         let explanation = "";
-        for await (const t of streamText(
-          dnaExplanationPrompt(intent, dna.construct)
-        )) {
-          if (aborted) break;
-          explanation += t;
-          emit({ type: "token", text: t });
+        try {
+          for await (const t of streamText(
+            dnaExplanationPrompt(intent, dna.construct)
+          )) {
+            if (aborted) break;
+            explanation += t;
+            emit({ type: "token", text: t });
+          }
+        } catch (e) {
+          console.error(
+            "dna explanation failed:",
+            e instanceof Error ? e.message : e
+          );
+        }
+        if (!explanation.trim()) {
+          explanation =
+            "Codon-optimized sequence ready. The written analysis could not be generated this time, but the construct below is valid.";
         }
         stage("write", "done");
         result = {
@@ -238,12 +249,23 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
         stage("scan", "done");
         stage("write", "start");
         let explanation = "";
-        for await (const t of streamText(
-          crisprExplanationPrompt(intent, cr.target.name, cr.guides.length)
-        )) {
-          if (aborted) break;
-          explanation += t;
-          emit({ type: "token", text: t });
+        try {
+          for await (const t of streamText(
+            crisprExplanationPrompt(intent, cr.target.name, cr.guides.length)
+          )) {
+            if (aborted) break;
+            explanation += t;
+            emit({ type: "token", text: t });
+          }
+        } catch (e) {
+          console.error(
+            "crispr explanation failed:",
+            e instanceof Error ? e.message : e
+          );
+        }
+        if (!explanation.trim()) {
+          explanation =
+            "Guide RNAs ready. The written analysis could not be generated this time, but the guides below are valid.";
         }
         stage("write", "done");
         result = {
@@ -267,6 +289,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
       stage("search", "done");
 
       stage("design", "start");
+      if (aborted) return; // client gone before the expensive NIM redesign
       const referenceSequences = references
         .map((r) => r.sequence)
         .filter(Boolean);
@@ -280,18 +303,32 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
 
       stage("write", "start");
       let explanation = "";
-      for await (const token of streamExplanation(
-        intent,
-        top.map((c) => c.sequence),
-        references.map((r) => r.title)
-      )) {
-        if (aborted) break;
-        explanation += token;
-        emit({ type: "token", text: token });
+      try {
+        for await (const token of streamExplanation(
+          intent,
+          top.map((c) => c.sequence),
+          references.map((r) => r.title)
+        )) {
+          if (aborted) break;
+          explanation += token;
+          emit({ type: "token", text: token });
+        }
+      } catch (e) {
+        // A failed explanation (e.g. Anthropic 429/5xx) must not throw away a
+        // fully computed design. Fall back and continue to fold + persist.
+        console.error(
+          "explanation stream failed:",
+          e instanceof Error ? e.message : e
+        );
+      }
+      if (!explanation.trim()) {
+        explanation =
+          "Design complete. The written analysis could not be generated this time, but the candidate sequences and predicted structure below are valid.";
       }
       stage("write", "done");
 
       stage("fold", "start");
+      if (aborted) return; // client gone before the final fold
       const fold = await foldSequence(top[0]?.sequence ?? "");
       stage("fold", "done");
 

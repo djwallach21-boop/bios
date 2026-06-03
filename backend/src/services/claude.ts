@@ -11,7 +11,9 @@ function getClient(): Anthropic {
         "ANTHROPIC_API_KEY is not set. Add it to backend/.env"
       );
     }
-    client = new Anthropic({ apiKey });
+    // Bound each request (default is 10 min): a stalled upstream otherwise pins
+    // a concurrency slot on the single instance until the socket dies.
+    client = new Anthropic({ apiKey, timeout: 90_000 });
   }
   return client;
 }
@@ -174,6 +176,19 @@ export async function* streamExplanation(
       yield event.delta.text;
     }
   }
+}
+
+// Non-streaming prose generation. The non-stream REST pipeline (runDesign) uses
+// this for the dna/crispr modalities, which otherwise only have streaming
+// explainers available.
+export async function generateText(prompt: string): Promise<string> {
+  const response = await getClient().messages.create({
+    model: "claude-sonnet-4-6",
+    max_tokens: 1024,
+    messages: [{ role: "user", content: prompt }],
+  });
+  const block = response.content[0];
+  return block && block.type === "text" ? block.text : "";
 }
 
 // Generic prose streamer (used by non-protein modalities).

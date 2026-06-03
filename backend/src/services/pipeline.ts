@@ -1,65 +1,178 @@
-import { parseIntent, synthesizeExplanation } from "./claude";
+import {
+  parseIntent,
+  classifyIntent,
+  synthesizeExplanation,
+  generateText,
+} from "./claude";
 import { searchProteins } from "./genbank";
 import { generateRedesignedSequences } from "./denovo";
 import { foldSequence } from "./esmfold";
+import {
+  computeDna,
+  computeCrispr,
+  dnaExplanationPrompt,
+  crisprExplanationPrompt,
+} from "./modalities";
 import { screenText, containsRawSequence } from "./biosafety";
-import type { DesignResult } from "../types";
+import type { DesignResult, ParsedIntent } from "../types";
 
-// The one canonical design pipeline. Every surface (chat, public REST API, SDK)
-// runs THIS, so the contract and behavior stay identical everywhere.
-//
-// parse intent -> find natural scaffolds (GenBank) -> design novel sequences
-// (ProteinMPNN, or scaffold fallback) -> fold the top candidate (ESMFold) for
-// real structure + pLDDT -> explain (Claude).
+const EMPTY_PARSED: ParsedIntent = {
+  targetFunction: "",
+  organism: "",
+  constraints: [],
+  similarProteins: [],
+  keywords: [],
+};
+
+// Pre-routing decline (safety / pasted sequence): no parsed intent yet.
+function declined(
+  intent: string,
+  reason: string,
+  alternative: string
+): DesignResult {
+  return {
+    intent,
+    modality: "declined",
+    kind: "decline",
+    computed: "reference-only",
+    confidence: null,
+    parsed: EMPTY_PARSED,
+    references: [],
+    explanation: `${reason} ${alternative}`,
+    candidates: [],
+    declineReason: reason,
+    alternative,
+  };
+}
+
+// Post-routing decline (could not resolve a target for the chosen modality).
+function decline(
+  intent: string,
+  parsed: ParsedIntent,
+  modality: string,
+  reason: string,
+  alternative: string
+): DesignResult {
+  return {
+    intent,
+    modality,
+    kind: "decline",
+    computed: "reference-only",
+    confidence: null,
+    parsed,
+    references: [],
+    explanation: `${reason} ${alternative}`,
+    candidates: [],
+    declineReason: reason,
+    alternative,
+  };
+}
+
+// Generate explanatory prose, falling back to a short note if the model call
+// fails -- a 429/5xx must never throw away an already-computed design.
+async function explainOrFallback(
+  fn: () => Promise<string>,
+  fallback: string
+): Promise<string> {
+  try {
+    const text = await fn();
+    if (text.trim()) return text;
+  } catch (e) {
+    console.error("explanation failed:", e instanceof Error ? e.message : e);
+  }
+  return fallback;
+}
+
+// The one canonical NON-STREAMING design pipeline behind POST /v1/designs and
+// POST /api/design (the documented public REST API + SDK surface). It mirrors
+// the streaming path's modality routing so the REST API and the chat UI never
+// diverge: parse + route -> (protein | dna | crispr) -> explain.
 export async function runDesign(intent: string): Promise<DesignResult> {
   if (!screenText(intent).allowed) {
-    return {
+    return declined(
       intent,
-      modality: "declined",
-      kind: "decline",
-      computed: "reference-only",
-      confidence: null,
-      parsed: {
-        targetFunction: "",
-        organism: "",
-        constraints: [],
-        similarProteins: [],
-        keywords: [],
-      },
-      references: [],
-      explanation:
-        "This request was declined by the BiOS safety screen and nothing was designed.",
-      candidates: [],
-      declineReason: "Declined by the safety screen.",
-      alternative: "Rephrase as a legitimate research goal.",
-    };
+      "This request was declined by the BiOS safety screen and nothing was designed.",
+      "Rephrase as a legitimate research goal."
+    );
   }
-  // Fail closed on pasted raw sequences here too (mirrors the streaming path),
-  // so the contract is identical on /v1/designs and /api/design.
+  // Fail closed on pasted raw sequences (mirrors the streaming path), so the
+  // contract is identical on /v1/designs and /api/design.
   if (containsRawSequence(intent)) {
+    return declined(
+      intent,
+      "Pasted raw sequences can't be safety-screened yet, so BiOS does not design directly from them.",
+      "Describe the target by name or function (e.g. 'codon-optimize human insulin for E. coli')."
+    );
+  }
+
+  const route = await classifyIntent(intent);
+  const parsed = await parseIntent(intent);
+
+  // ---- DNA: codon-optimize a named protein into a coding sequence ----
+  if (route.modality === "dna") {
+    const dna = await computeDna(intent, parsed);
+    if (!dna) {
+      return decline(
+        intent,
+        parsed,
+        "dna",
+        "I could not find a protein to codon-optimize from that request.",
+        "Name a known protein, e.g. 'codon-optimize human insulin for E. coli'."
+      );
+    }
     return {
       intent,
-      modality: "declined",
-      kind: "decline",
-      computed: "reference-only",
+      modality: "dna",
+      kind: "dna",
+      computed: "deterministic",
       confidence: null,
-      parsed: {
-        targetFunction: "",
-        organism: "",
-        constraints: [],
-        similarProteins: [],
-        keywords: [],
-      },
-      references: [],
-      explanation:
-        "Pasted raw sequences can't be safety-screened yet, so BiOS does not design directly from them. Describe the target by name or function instead.",
+      parsed,
+      references: dna.references,
+      explanation: await explainOrFallback(
+        () => generateText(dnaExplanationPrompt(intent, dna.construct)),
+        "Codon-optimized sequence ready. The written analysis could not be generated this time, but the construct below is valid."
+      ),
       candidates: [],
-      declineReason: "Pasted raw sequences can't be safety-screened yet.",
-      alternative:
-        "Describe the target by name or function (e.g. 'codon-optimize human insulin for E. coli').",
+      construct: dna.construct,
     };
   }
-  const parsed = await parseIntent(intent);
+
+  // ---- CRISPR: enumerate SpCas9 guides for a named target ----
+  if (route.modality === "crispr") {
+    const cr = await computeCrispr(intent, parsed);
+    if (!cr) {
+      return decline(
+        intent,
+        parsed,
+        "crispr",
+        "I could not fetch a target sequence to scan for guides.",
+        "Name a gene, e.g. 'CRISPR guides to knock out human PCSK9'."
+      );
+    }
+    return {
+      intent,
+      modality: "crispr",
+      kind: "crispr",
+      computed: "deterministic",
+      confidence: null,
+      parsed,
+      references: cr.references,
+      explanation: await explainOrFallback(
+        () =>
+          generateText(
+            crisprExplanationPrompt(intent, cr.target.name, cr.guides.length)
+          ),
+        "Guide RNAs ready. The written analysis could not be generated this time, but the guides below are valid."
+      ),
+      candidates: [],
+      guides: cr.guides,
+      target: cr.target,
+    };
+  }
+
+  // ---- Protein (the original pipeline) ----
+  // find natural scaffolds (GenBank) -> design novel sequences (ProteinMPNN, or
+  // scaffold fallback) -> fold the top candidate (ESMFold) -> explain (Claude).
   const references = await searchProteins(parsed.keywords);
 
   const referenceSequences = references.map((r) => r.sequence).filter(Boolean);
@@ -87,10 +200,14 @@ export async function runDesign(intent: string): Promise<DesignResult> {
   // not a computed design -- label it honestly.
   const computed = top[0]?.origin === "scaffold" ? "reference-only" : "real";
 
-  const explanation = await synthesizeExplanation(
-    intent,
-    candidates.map((c) => c.sequence),
-    references.map((r) => r.title)
+  const explanation = await explainOrFallback(
+    () =>
+      synthesizeExplanation(
+        intent,
+        candidates.map((c) => c.sequence),
+        references.map((r) => r.title)
+      ),
+    "Design complete. The written analysis could not be generated this time, but the candidate sequences and predicted structure are valid."
   );
 
   return {

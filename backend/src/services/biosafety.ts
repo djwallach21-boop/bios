@@ -9,6 +9,7 @@
 // Phrases that signal intent to weaponize or increase harm. The operator can
 // extend this via BIOS_BIOSAFETY_TERMS (comma-separated) without code changes.
 const HARM_INTENT: string[] = [
+  // Weaponization phrasing.
   "bioweapon",
   "biological weapon",
   "weaponize",
@@ -22,6 +23,33 @@ const HARM_INTENT: string[] = [
   "evade immunity",
   "defeat detection",
   "for an attack",
+  "biological attack",
+  "bioterror",
+  "nerve agent",
+  "chemical weapon",
+  // Harm-OUTCOME phrasing. The list above only caught the act of weaponizing,
+  // so a blunt request like "synthesize ricin to poison people" slipped through.
+  // These phrases signal intent to harm humans and are vanishingly rare in
+  // legitimate research prose (which says "treat", "detect", "neutralize"), so
+  // they screen real malice without blocking dual-use work (vaccines, Botox,
+  // immunotoxin therapeutics, antitoxins).
+  "to poison people",
+  "poison people",
+  "poison humans",
+  "to poison a",
+  "to kill people",
+  "kill people",
+  "kill humans",
+  "harm people",
+  "harm humans",
+  "hurt people",
+  "mass casualt", // casualty / casualties
+  "cause a pandemic",
+  "start a pandemic",
+  "engineer a pandemic",
+  "spread a disease",
+  "infect people",
+  "release a pathogen",
 ];
 
 function terms(): string[] {

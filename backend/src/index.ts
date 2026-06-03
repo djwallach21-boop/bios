@@ -60,6 +60,15 @@ app.use(
 // Cap request body size; protein structures are large but not unbounded.
 app.use(express.json({ limit: "2mb" }));
 
+// Express 5 leaves req.body undefined when no JSON body was parsed (missing or
+// non-JSON Content-Type). Handlers destructure req.body, which then throws a
+// TypeError -> 500. Normalize to {} so those handlers hit their own clean 400
+// ("Missing 'sequence'/'intent'") instead.
+app.use((req, _res, next) => {
+  if (req.body == null) req.body = {};
+  next();
+});
+
 app.get("/api/health", (_req, res) => {
   res.json({ status: "ok", service: "bios-api" });
 });

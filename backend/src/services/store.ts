@@ -35,6 +35,18 @@ function readDB(): DesignsDB {
   try {
     return JSON.parse(readFileSync(DESIGNS_FILE, "utf8")) as DesignsDB;
   } catch {
+    // The registry is corrupt/truncated. Returning {} here is fine for THIS
+    // read, but the next saveDesign would write {} + the new record back,
+    // silently destroying every recoverable design. Move the bad file aside
+    // first so the next ensure() starts clean and the data stays recoverable.
+    try {
+      renameSync(DESIGNS_FILE, `${DESIGNS_FILE}.corrupt-${Date.now()}`);
+      console.error(
+        "designs.json was unparseable; moved aside to .corrupt-* and started a fresh registry."
+      );
+    } catch {
+      /* best effort; fall through to an empty in-memory registry */
+    }
     return {};
   }
 }
