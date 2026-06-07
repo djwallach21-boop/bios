@@ -43,6 +43,25 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Hide the dev-only build-activity badge; it floats over the bottom-left of
+  // the sidebar and pollutes design screenshots.
+  devIndicators: false,
+  // molstar ships scss skins + non-JS assets; run it through Next's full loader
+  // pipeline (sass installed) and treat stray .html as raw source so it bundles.
+  transpilePackages: ["molstar"],
+  webpack: (config) => {
+    config.module.rules.push({ test: /\.html$/i, type: "asset/source" });
+    // molstar's app entry references Node-only modules (video export); stub them
+    // for the browser bundle.
+    config.resolve = config.resolve || {};
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      fs: false,
+      path: false,
+      crypto: false,
+    };
+    return config;
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -4,7 +4,7 @@
 
 Solo, non-PhD builder here. I made a small web tool (BiOS) and want feedback from people who actually do this work, because I know vague claims get shredded here and I'd rather be told it's useless and why.
 
-You type a goal in plain English, it picks a modality, and you get back a sequence plus, for proteins, a 3D structure you can rotate. Free, no signup, no install, runs in the browser: {{LIVE_URL}}
+You type a goal in plain English, it picks a modality, and you get back a sequence plus, for proteins, a 3D structure you can rotate. Free, no signup, no install, runs in the browser: https://bios-murex.vercel.app
 
 What it actually does, precisely:
 

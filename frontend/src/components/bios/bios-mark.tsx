@@ -12,13 +12,13 @@ export function BiosMark({ className }: { className?: string }) {
       <path
         d="M12 2.5 C 18 6, 18 9.5, 12 12 C 6 14.5, 6 18, 12 21.5"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       <path
         d="M12 2.5 C 6 6, 6 9.5, 12 12 C 18 14.5, 18 18, 12 21.5"
         stroke="currentColor"
-        strokeWidth="1.7"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       <line
@@ -29,7 +29,7 @@ export function BiosMark({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
-        opacity="0.7"
+        opacity="0.55"
       />
       <line
         x1="9"
@@ -39,7 +39,7 @@ export function BiosMark({ className }: { className?: string }) {
         stroke="currentColor"
         strokeWidth="1.5"
         strokeLinecap="round"
-        opacity="0.7"
+        opacity="0.55"
       />
     </svg>
   );

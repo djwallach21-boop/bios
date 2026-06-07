@@ -41,7 +41,7 @@ export function ChatTurn({ message }: { message: ChatMessage }) {
             {message.stream.text && (
               <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
                 {message.stream.text}
-                <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] bg-confidence-high align-middle motion-safe:animate-caret-blink" />
+                <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[2px] bg-foreground/70 align-middle motion-safe:animate-caret-blink" />
               </p>
             )}
             <div className={message.stream.text ? "mt-5" : ""}>

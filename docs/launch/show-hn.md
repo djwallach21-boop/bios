@@ -8,4 +8,4 @@ What it does: for a protein target, it finds the closest natural scaffold, redes
 
 Limitations I want to be upfront about: this is redesign of existing scaffolds, not de novo design. Targets over ~400aa just return the closest natural sequence, labeled as a reference. And the output is a hypothesis, not a validated molecule — pLDDT is a prediction, and anything here needs experimental validation before you rely on it.
 
-Solo project, not open source. I'd value feedback on what's useful or wrong: {{LIVE_URL}}
+Solo project, not open source. I'd value feedback on what's useful or wrong: https://bios-murex.vercel.app

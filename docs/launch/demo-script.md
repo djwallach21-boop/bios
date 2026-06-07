@@ -4,7 +4,7 @@
 
 **Body:**
 
-I built a free web tool that takes a plain-English goal and gives you back a biological design with a 3D structure you can rotate. No install, no signup, no code. {{LIVE_URL}}
+I built a free web tool that takes a plain-English goal and gives you back a biological design with a 3D structure you can rotate. No install, no signup, no code. https://bios-murex.vercel.app
 
 What it actually does, by modality:
 
@@ -30,7 +30,7 @@ What I'd love feedback on:
 2. Is the >400 aa "reference, not redesign" fallback the right call, or would you rather it just refuse?
 3. For the bench folks: what would make a result trustworthy enough to actually order and test?
 
-It's free to try, no account needed: {{LIVE_URL}}. I'll be in the thread.
+It's free to try, no account needed: https://bios-murex.vercel.app. I'll be in the thread.
 
 ---
 
@@ -76,7 +76,7 @@ Format: `[MM:SS] ON SCREEN — what the viewer sees / SAY — what you say (or c
                SAY: "Same box also does deterministic codon optimization and
                      SpCas9 guide design."
 
-[00:57–01:00]  ON SCREEN: Cut to landing page with {{LIVE_URL}} on screen.
+[00:57–01:00]  ON SCREEN: Cut to landing page with https://bios-murex.vercel.app on screen.
                SAY: "Free, no signup, no install. Link's in the description. Tell me where it breaks."
 ```
 

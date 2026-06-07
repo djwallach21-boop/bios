@@ -100,9 +100,22 @@ export default async function ExplorePage(props: {
         </div>
 
         {designs.length === 0 ? (
-          <p className="mt-10 text-[14px] text-muted-foreground">
-            No designs yet. Be the first.
-          </p>
+          <div className="mt-24 flex flex-col items-center text-center">
+            <BiosMark className="size-8 text-muted-foreground/25" />
+            <p className="mt-5 text-[15px] text-foreground/85">
+              No public designs yet.
+            </p>
+            <p className="mt-1.5 max-w-[34ch] text-[13px] leading-relaxed text-muted-foreground">
+              Every design on BiOS is public the moment it&apos;s made. Be the
+              first.
+            </p>
+            <Link
+              href="/"
+              className="press mt-6 inline-flex items-center rounded-full bg-primary px-4 py-2 text-[13px] font-medium text-primary-foreground transition-opacity hover:opacity-90"
+            >
+              Design a protein
+            </Link>
+          </div>
         ) : (
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {designs.map((d) => (

@@ -75,7 +75,7 @@ export function FastaViewer({
 
       <div className="px-5 pb-5">
         <div className="relative overflow-hidden rounded-lg bg-recess p-4 font-mono text-[13px] leading-[1.6]">
-          <div className="text-confidence-high/70">
+          <div className="text-muted-foreground">
             &gt;{name} | {scaffold ? "closest natural scaffold (GenBank)" : "BiOS design"}
           </div>
           {shown.map((line) => (

@@ -21,7 +21,7 @@ export function Sidebar({
   onCollapse: () => void;
 }) {
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-border bg-sidebar">
+    <aside className="flex h-full w-[220px] shrink-0 flex-col border-r border-border bg-sidebar">
       <div className="flex items-center justify-between px-3 py-3">
         <span className="flex items-center gap-2 text-[14px] font-semibold tracking-[-0.01em] text-foreground">
           <BiosMark className="size-4" />
@@ -39,7 +39,7 @@ export function Sidebar({
       <div className="px-3 pb-2">
         <button
           onClick={onNew}
-          className="flex w-full items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-[13px] text-foreground transition-colors hover:border-foreground/25"
+          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-[13px] text-muted-foreground transition-colors hover:bg-surface-2 hover:text-foreground"
         >
           <Plus className="size-4" />
           New design

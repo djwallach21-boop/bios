@@ -27,6 +27,6 @@ So it's a fast way to get from "I want a protein that does X" to a concrete sequ
 
 If you run an iGEM team: try it on something you're actually working on and tell me where it falls short. Same for anyone at the bench with five spare minutes. What's confusing? What's missing? What would make it actually useful in your workflow instead of just a demo?
 
-Link: {{LIVE_URL}}
+Link: https://bios-murex.vercel.app
 
 Built solo, so any feedback (including "this is useless because X") is welcome. Thanks.
