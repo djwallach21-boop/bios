@@ -7,7 +7,7 @@ const RATINGS = new Set(["yes", "not_quite", "no"]);
 
 // Capture an in-product reaction to a design. Deliberately tiny: a rating plus
 // an optional note. This is the primary signal for what to build next.
-feedbackRouter.post("/", (req: Request, res: Response) => {
+feedbackRouter.post("/", async (req: Request, res: Response) => {
   const { rating, text, designId } = req.body;
   if (typeof rating !== "string" || !RATINGS.has(rating)) {
     res
@@ -19,8 +19,7 @@ feedbackRouter.post("/", (req: Request, res: Response) => {
   const cleanDesignId =
     typeof designId === "string" && designId.length <= 64 ? designId : null;
   try {
-    // Safe cast: validated against RATINGS above (Set.has doesn't narrow the type).
-    const record = saveFeedback(
+    const record = await saveFeedback(
       rating as "yes" | "not_quite" | "no",
       cleanText,
       cleanDesignId,

@@ -296,7 +296,8 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
       const raw = await generateRedesignedSequences(
         parsed.targetFunction,
         referenceSequences,
-        foldSequence
+        foldSequence,
+        () => aborted
       );
       const top = raw.slice(0, 3);
       stage("design", "done");
@@ -362,7 +363,7 @@ designStreamRouter.post("/", async (req: Request, res: Response) => {
 
     // Never persist declines (they would surface in the public gallery).
     if (result.kind !== "decline") {
-      const saved = saveDesign(
+      const saved = await saveDesign(
         result,
         Date.now(),
         typeof parentId === "string" ? parentId : null

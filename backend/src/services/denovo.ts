@@ -29,7 +29,8 @@ export function deNovoEnabled(): boolean {
 export async function generateRedesignedSequences(
   targetFunction: string,
   referenceSequences: string[],
-  foldScaffold: FoldScaffold
+  foldScaffold: FoldScaffold,
+  isCancelled?: () => boolean
 ): Promise<RawCandidate[]> {
   const ref = referenceSequences[0];
   if (!ref || ref.replace(/\s+/g, "").length > MAX_DESIGN_RESIDUES) {
@@ -43,7 +44,7 @@ export async function generateRedesignedSequences(
     const folded = await foldScaffold(ref);
     if (!folded?.pdb) return fallback(targetFunction, referenceSequences);
 
-    const designs = await proteinMPNN(folded.pdb);
+    const designs = await proteinMPNN(folded.pdb, isCancelled);
     if (designs.length === 0) return fallback(targetFunction, referenceSequences);
 
     return designs
@@ -64,7 +65,7 @@ export async function generateRedesignedSequences(
 }
 
 // Raw ProteinMPNN call against NVIDIA NIM. Handles inline (200) and async (202).
-async function proteinMPNN(pdb: string): Promise<MpnnDesign[]> {
+async function proteinMPNN(pdb: string, isCancelled?: () => boolean): Promise<MpnnDesign[]> {
   const res = await axios.post(
     `${NIM_BASE}/proteinmpnn/predict`,
     {
@@ -81,19 +82,26 @@ async function proteinMPNN(pdb: string): Promise<MpnnDesign[]> {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      timeout: 300000,
+      timeout: 30_000,
       validateStatus: (s) => s === 200 || s === 202,
     }
   );
 
   const data =
-    res.status === 202 ? await pollNim(res.headers["nvcf-reqid"]) : res.data;
+    res.status === 202 ? await pollNim(res.headers["nvcf-reqid"], isCancelled) : res.data;
   return parseMfasta(data.mfasta as string);
 }
 
-async function pollNim(reqId: string): Promise<{ mfasta: string; scores: number[] }> {
+async function pollNim(
+  reqId: string,
+  isCancelled?: () => boolean
+): Promise<{ mfasta: string; scores: number[] }> {
+  if (!/^[a-zA-Z0-9_-]{8,64}$/.test(reqId)) throw new Error("Invalid NIM request ID");
   const url = `https://health.api.nvidia.com/v1/status/${reqId}`;
+  const deadline = Date.now() + 120_000;
   for (let i = 0; i < 150; i++) {
+    if (isCancelled?.()) throw new Error("Client disconnected during NIM poll");
+    if (Date.now() > deadline) throw new Error("NIM poll deadline exceeded (120s)");
     const r = await axios.get(url, {
       headers: { Authorization: `Bearer ${process.env.NVIDIA_NIM_API_KEY}` },
       validateStatus: (s) => s === 200 || s === 202,

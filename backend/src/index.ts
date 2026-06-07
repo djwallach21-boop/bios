@@ -126,6 +126,9 @@ app.use((err: Error & { status?: number; statusCode?: number }, _req: Request, r
   apiError(res, status, type, message);
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`BiOS API running on port ${PORT}`);
 });
+server.headersTimeout = 10_000;
+server.requestTimeout = 30_000;
+server.keepAliveTimeout = 5_000;

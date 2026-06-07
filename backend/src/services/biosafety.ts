@@ -65,9 +65,13 @@ export interface BiosafetyResult {
   matched?: string;
 }
 
-// Screen any free text (the intent, a resolved target name) for harm intent.
 export function screenText(text: string): BiosafetyResult {
-  const s = text.toLowerCase();
+  const s = text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[​-‍­﻿]/g, "")
+    .replace(/[^\x00-\x7f]/g, "")
+    .toLowerCase();
   for (const t of terms()) {
     if (s.includes(t)) return { allowed: false, matched: t };
   }

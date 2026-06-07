@@ -4,11 +4,21 @@ import { join } from "path";
 import type { DesignResult } from "../types";
 import { contentId } from "../lib/id";
 
-// Server-side design registry. File-backed for now (zero deps, ships today)
-// behind a narrow interface so it can be swapped for Supabase/Postgres without
-// touching callers. Every completed design persists here and gets a permanent
-// shareable id -> /d/<id>. This is the network-effect layer.
-const DATA_DIR = join(process.cwd(), "data");
+class FileMutex {
+  private queue: Promise<void> = Promise.resolve();
+  acquire(): Promise<() => void> {
+    let release!: () => void;
+    const prev = this.queue;
+    this.queue = new Promise<void>((r) => { release = r; });
+    return prev.then(() => release);
+  }
+}
+
+const designLock = new FileMutex();
+const keyLock = new FileMutex();
+const feedbackLock = new FileMutex();
+
+const DATA_DIR = process.env.BIOS_DATA_DIR ?? join(process.cwd(), "data");
 const DESIGNS_FILE = join(DATA_DIR, "designs.json");
 const KEYS_FILE = join(DATA_DIR, "apikeys.json");
 const FEEDBACK_FILE = join(DATA_DIR, "feedback.json");
@@ -36,18 +46,19 @@ function readDB(): DesignsDB {
   try {
     return JSON.parse(readFileSync(DESIGNS_FILE, "utf8")) as DesignsDB;
   } catch {
-    // The registry is corrupt/truncated. Returning {} here is fine for THIS
-    // read, but the next saveDesign would write {} + the new record back,
-    // silently destroying every recoverable design. Move the bad file aside
-    // first so the next ensure() starts clean and the data stays recoverable.
+    const tmpFile = `${DESIGNS_FILE}.tmp`;
+    if (existsSync(tmpFile)) {
+      try {
+        const recovered = JSON.parse(readFileSync(tmpFile, "utf8")) as DesignsDB;
+        console.error("[CRITICAL] designs.json corrupt; recovered from .tmp");
+        writeJsonAtomic(DESIGNS_FILE, recovered);
+        return recovered;
+      } catch { /* .tmp also corrupt */ }
+    }
     try {
       renameSync(DESIGNS_FILE, `${DESIGNS_FILE}.corrupt-${Date.now()}`);
-      console.error(
-        "designs.json was unparseable; moved aside to .corrupt-* and started a fresh registry."
-      );
-    } catch {
-      /* best effort; fall through to an empty in-memory registry */
-    }
+      console.error("[CRITICAL] designs.json corrupt; moved to .corrupt-*");
+    } catch { /* best effort */ }
     return {};
   }
 }
@@ -75,26 +86,35 @@ function titleFor(result: DesignResult): string {
   return capped.charAt(0).toUpperCase() + capped.slice(1);
 }
 
-export function saveDesign(
+const MAX_DESIGNS = Number(process.env.BIOS_MAX_DESIGNS ?? 5000);
+
+export async function saveDesign(
   result: DesignResult,
   createdAt: number,
   parentId: string | null = null
-): StoredDesign {
-  const db = readDB();
-  const id = contentId(result);
-  // Immutable + content-addressed: identical designs dedup to one record.
-  if (db[id]) return db[id];
-  const design: StoredDesign = {
-    id,
-    title: titleFor(result),
-    result,
-    createdAt,
-    parentId: parentId && db[parentId] ? parentId : null,
-    forkCount: 0,
-  };
-  db[id] = design;
-  writeDB(db);
-  return design;
+): Promise<StoredDesign> {
+  const release = await designLock.acquire();
+  try {
+    const db = readDB();
+    const id = contentId(result);
+    if (Object.hasOwn(db, id)) return db[id];
+    if (Object.keys(db).length >= MAX_DESIGNS) {
+      throw Object.assign(new Error("Design registry full."), { status: 503 });
+    }
+    const design: StoredDesign = {
+      id,
+      title: titleFor(result),
+      result,
+      createdAt,
+      parentId: parentId && Object.hasOwn(db, parentId) ? parentId : null,
+      forkCount: 0,
+    };
+    db[id] = design;
+    writeDB(db);
+    return design;
+  } finally {
+    release();
+  }
 }
 
 // forkCount is DERIVED from the stored parentId lineage edges, never a mutable
@@ -109,9 +129,8 @@ function countForks(db: DesignsDB, id: string): number {
 
 export function getDesign(id: string): StoredDesign | null {
   const db = readDB();
-  const d = db[id];
-  if (!d) return null;
-  return { ...d, forkCount: countForks(db, id) };
+  if (!Object.hasOwn(db, id)) return null;
+  return { ...db[id], forkCount: countForks(db, id) };
 }
 
 export type GallerySort = "recent" | "forked" | "top";
@@ -178,6 +197,10 @@ function readKeys(): KeysDB {
   try {
     return JSON.parse(readFileSync(KEYS_FILE, "utf8")) as KeysDB;
   } catch {
+    try {
+      renameSync(KEYS_FILE, `${KEYS_FILE}.corrupt-${Date.now()}`);
+      console.error("[CRITICAL] apikeys.json corrupt; moved to .corrupt-*");
+    } catch { /* best effort */ }
     return {};
   }
 }
@@ -195,27 +218,30 @@ function sha256(s: string): string {
 // bound (disk-fill DoS on the file-backed registry).
 const MAX_KEYS = Number(process.env.BIOS_MAX_KEYS ?? 10000);
 
-export function createApiKey(label = "default"): { key: string; record: ApiKeyRecord } {
-  const existing = readKeys();
-  if (Object.keys(existing).length >= MAX_KEYS) {
-    const err = new Error("API key limit reached.") as Error & { status?: number };
-    err.status = 503;
-    throw err;
+export async function createApiKey(label = "default"): Promise<{ key: string; record: ApiKeyRecord }> {
+  const release = await keyLock.acquire();
+  try {
+    const existing = readKeys();
+    if (Object.keys(existing).length >= MAX_KEYS) {
+      throw Object.assign(new Error("API key limit reached."), { status: 503 });
+    }
+    const secret = randomBytes(24).toString("base64url");
+    const key = `bios_sk_live_${secret}`;
+    const hash = sha256(key);
+    const record: ApiKeyRecord = {
+      id: `key_${randomBytes(6).toString("base64url")}`,
+      hash,
+      prefix: key.slice(0, 20),
+      tier: "free",
+      label,
+      createdAt: Date.now(),
+    };
+    existing[hash] = record;
+    writeKeys(existing);
+    return { key, record };
+  } finally {
+    release();
   }
-  const secret = randomBytes(24).toString("base64url"); // 32 url-safe chars
-  const key = `bios_sk_live_${secret}`;
-  const hash = sha256(key);
-  const record: ApiKeyRecord = {
-    id: `key_${randomBytes(6).toString("base64url")}`,
-    hash,
-    prefix: key.slice(0, 20),
-    tier: "free",
-    label,
-    createdAt: Date.now(),
-  };
-  existing[hash] = record;
-  writeKeys(existing);
-  return { key, record };
 }
 
 export function validateApiKey(rawKey: string): ApiKeyRecord | null {
@@ -232,37 +258,44 @@ export interface FeedbackRecord {
   createdAt: number;
 }
 
-export function saveFeedback(
+const MAX_FEEDBACK = Number(process.env.BIOS_MAX_FEEDBACK ?? 10000);
+
+export async function saveFeedback(
   rating: FeedbackRecord["rating"],
   text: string,
   designId: string | null,
   createdAt: number
-): FeedbackRecord {
-  ensure();
-  let db: Record<string, FeedbackRecord> = {};
+): Promise<FeedbackRecord> {
+  const release = await feedbackLock.acquire();
   try {
-    if (existsSync(FEEDBACK_FILE))
-      db = JSON.parse(readFileSync(FEEDBACK_FILE, "utf8")) as Record<
-        string,
-        FeedbackRecord
-      >;
-  } catch {
-    db = {};
+    ensure();
+    let db: Record<string, FeedbackRecord> = {};
+    try {
+      if (existsSync(FEEDBACK_FILE))
+        db = JSON.parse(readFileSync(FEEDBACK_FILE, "utf8")) as Record<
+          string,
+          FeedbackRecord
+        >;
+    } catch {
+      db = {};
+    }
+    if (Object.keys(db).length >= MAX_FEEDBACK) {
+      throw Object.assign(new Error("Feedback capacity reached."), { status: 503 });
+    }
+    const id = `fb_${randomBytes(6).toString("base64url")}`;
+    const record: FeedbackRecord = {
+      id,
+      rating,
+      text: text.slice(0, 1000),
+      designId,
+      createdAt,
+    };
+    db[id] = record;
+    writeJsonAtomic(FEEDBACK_FILE, db);
+    const safeId = (designId ?? "-").replace(/[\r\n\x00-\x1f]/g, "_");
+    console.log(`[feedback] rating=${rating} design=${safeId}`);
+    return record;
+  } finally {
+    release();
   }
-  const id = `fb_${randomBytes(6).toString("base64url")}`;
-  const record: FeedbackRecord = {
-    id,
-    rating,
-    text: text.slice(0, 1000),
-    designId,
-    createdAt,
-  };
-  db[id] = record;
-  writeJsonAtomic(FEEDBACK_FILE, db);
-  // Also log it: on the free tier the file is ephemeral, but Render keeps logs,
-  // so feedback is never lost even before the persistent disk is attached.
-  console.log(
-    `[feedback] rating=${rating} design=${designId ?? "-"} note=${JSON.stringify(text.slice(0, 200))}`
-  );
-  return record;
 }

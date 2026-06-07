@@ -26,7 +26,7 @@ designRouter.post("/", async (req: Request, res: Response) => {
       res.json(result);
       return;
     }
-    const saved = saveDesign(
+    const saved = await saveDesign(
       result,
       Date.now(),
       typeof parentId === "string" ? parentId : null

@@ -21,6 +21,28 @@ const REFILL_PER_SEC = 0.05; // ~1 token / 20s sustained; bursts up to capacity
 
 const buckets = new Map<string, Bucket>();
 
+const keyMintBuckets = new Map<string, Bucket>();
+const KEY_MINT_CAPACITY = 3;
+const KEY_MINT_REFILL = 0.001;
+
+export function keyMintLimit(req: Request, res: Response, next: NextFunction): void {
+  const ip = req.ip ?? req.socket?.remoteAddress ?? "unknown";
+  const now = Date.now();
+  let b = keyMintBuckets.get(ip);
+  if (!b) {
+    b = { tokens: KEY_MINT_CAPACITY, updated: now };
+    keyMintBuckets.set(ip, b);
+  }
+  b.tokens = Math.min(KEY_MINT_CAPACITY, b.tokens + ((now - b.updated) / 1000) * KEY_MINT_REFILL);
+  b.updated = now;
+  if (b.tokens < 1) {
+    apiError(res, 429, "rate_limit_exceeded", "Too many key requests. Try again later.");
+    return;
+  }
+  b.tokens -= 1;
+  next();
+}
+
 // Aggregate ceiling on billed design spend across ALL principals. Per-principal
 // buckets cannot bound total spend (an attacker can mint unlimited free keys,
 // each getting its own bucket -- denial-of-wallet). This single shared bucket
@@ -41,6 +63,7 @@ function costFor(path: string, method: string): number {
   if (path.includes("/fold")) return 4; // ESMFold
   if (path.includes("/search")) return 2;
   if (path.includes("/keys")) return 5;
+  if (path.includes("/feedback")) return 5;
   return 1;
 }
 
