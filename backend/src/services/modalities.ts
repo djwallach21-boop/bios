@@ -41,11 +41,20 @@ function hostFromIntent(intent: string): Host {
   // The host is the EXPRESSION organism. E. coli / yeast almost always appear
   // as the host when named, so they win over "human" (which usually names the
   // source protein, e.g. "human insulin for E. coli").
-  if (/\b(e\.?\s?coli|coli|bl21|bacterial?)\b/.test(s)) return "ecoli";
-  if (/\b(yeast|cerevisiae|pichia)\b/.test(s)) return "yeast";
-  if (/\b(human|hek|cho|mammalian)\b.*\b(express|cell|host|in)\b/.test(s))
+  if (/\b(e\.?\s?coli|coli|bl21|rosetta|bacterial?)\b/.test(s)) return "ecoli";
+  if (/\b(yeast|cerevisiae|s\.?\s?cerevisiae|pichia|komagataella)\b/.test(s))
+    return "yeast";
+  // Unambiguous mammalian expression hosts: these terms are ONLY ever the host,
+  // never the source protein, so they map to human directly. (Fixes "HEK cells"
+  // returning an E. coli construct -- the old pattern needed a trailing word and
+  // \bcell\b never matched the plural "cells".)
+  if (/\b(hek\s?-?\s?293|hek293|hek|293t?|cho|expi\w*|mammalian)\b/.test(s))
     return "human";
-  if (/express.*human|in human/.test(s)) return "human";
+  // A bare "human" usually names the SOURCE protein (e.g. "human insulin for
+  // E. coli"), so only treat it as the host when tied to expression.
+  if (/\b(human|homo sapiens)\b.{0,30}\b(express|expression|cell|cells|host)\b/.test(s))
+    return "human";
+  if (/express.{0,20}human|in human/.test(s)) return "human";
   return "ecoli";
 }
 
